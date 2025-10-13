@@ -43,14 +43,18 @@ export function IncomeCalculator() {
   const [savingsGoal, setSavingsGoal] = useState<number>(0);
   const [contributions, setContributions] = useState<SavingsContribution[]>([]);
   const { toast } = useToast();
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    setIsClient(true);
     const storedGoal = localStorage.getItem('savingsGoal');
     if (storedGoal) {
       try {
         const parsedGoal = parseFloat(storedGoal);
-        setSavingsGoal(parsedGoal);
-        goalForm.reset({ amount: parsedGoal });
+        if (!isNaN(parsedGoal)) {
+          setSavingsGoal(parsedGoal);
+          goalForm.reset({ amount: parsedGoal });
+        }
       } catch (error) {
         console.error("Failed to parse savings goal from localStorage", error);
       }
@@ -60,7 +64,7 @@ export function IncomeCalculator() {
     if (storedContributions) {
        try {
         const parsedContributions = JSON.parse(storedContributions, (key, value) => {
-          if (key === 'date') {
+          if (key === 'date' && typeof value === 'string') {
             return new Date(value);
           }
           return value;
@@ -71,15 +75,20 @@ export function IncomeCalculator() {
         setContributions([]);
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('savingsGoal', savingsGoal.toString());
-  }, [savingsGoal]);
+    if (isClient) {
+      localStorage.setItem('savingsGoal', savingsGoal.toString());
+    }
+  }, [savingsGoal, isClient]);
 
   useEffect(() => {
-    localStorage.setItem('savingsContributions', JSON.stringify(contributions));
-  }, [contributions]);
+    if (isClient) {
+      localStorage.setItem('savingsContributions', JSON.stringify(contributions));
+    }
+  }, [contributions, isClient]);
 
   const goalForm = useForm<z.infer<typeof savingsGoalSchema>>({
     resolver: zodResolver(savingsGoalSchema),
@@ -100,7 +109,7 @@ export function IncomeCalculator() {
     goalForm.reset({ amount: values.amount });
     toast({
       title: 'تم تحديث هدف الادخار',
-      description: `تم تحديد هدف الادخار السنوي بمبلغ ${values.amount.toFixed(
+      description: `تم تحديد هدف الادخar السنوي بمبلغ ${values.amount.toFixed(
         2
       )} ر.ع.`,
     });
@@ -132,6 +141,10 @@ export function IncomeCalculator() {
         variant: 'destructive'
       });
     }
+  }
+
+  if (!isClient) {
+    return null;
   }
 
   const totalSavings = contributions.reduce(
@@ -169,7 +182,7 @@ export function IncomeCalculator() {
                 name="amount"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>مبلغ الادخار السنوي</FormLabel>
+                    <FormLabel>مبلغ الادخar السنوي</FormLabel>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground">
                         ر.ع

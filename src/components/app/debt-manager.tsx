@@ -149,13 +149,15 @@ export function DebtManager() {
   const [debts, setDebts] = useState<Debt[]>([]);
   const [isAddDebtOpen, setAddDebtOpen] = useState(false);
   const { toast } = useToast();
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    setIsClient(true);
     const storedDebts = localStorage.getItem('debts');
     if (storedDebts) {
       try {
         const parsedDebts = JSON.parse(storedDebts, (key, value) => {
-          if (key === 'date') {
+          if (key === 'date' && typeof value === 'string') {
             return new Date(value);
           }
           return value;
@@ -169,8 +171,10 @@ export function DebtManager() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('debts', JSON.stringify(debts));
-  }, [debts]);
+    if(isClient) {
+      localStorage.setItem('debts', JSON.stringify(debts));
+    }
+  }, [debts, isClient]);
   
   const form = useForm<z.infer<typeof addDebtSchema>>({
     resolver: zodResolver(addDebtSchema),
@@ -204,6 +208,10 @@ export function DebtManager() {
       title: "تمت إضافة الدفعة",
       description: `تم تسجيل دفعة بمبلغ ${amount.toFixed(2)} ر.ع.`
     })
+  }
+
+  if (!isClient) {
+    return null;
   }
 
   return (

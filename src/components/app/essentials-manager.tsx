@@ -49,8 +49,10 @@ export function EssentialsManager() {
   const { toast } = useToast();
   const [aiResult, setAiResult] = useState<MonthlyEssentialsOutput | null>(null);
   const [isDialogVisible, setDialogVisible] = useState(false);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    setIsClient(true);
     const storedItems = localStorage.getItem('essentialItems');
     if (storedItems) {
       try {
@@ -63,8 +65,10 @@ export function EssentialsManager() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('essentialItems', JSON.stringify(items));
-  }, [items]);
+    if (isClient) {
+      localStorage.setItem('essentialItems', JSON.stringify(items));
+    }
+  }, [items, isClient]);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -124,6 +128,10 @@ export function EssentialsManager() {
       }
     });
   };
+
+  if (!isClient) {
+    return null;
+  }
 
   const totalCost = items.reduce((total, item) => total + (item.price ?? 0) * item.quantity, 0);
 

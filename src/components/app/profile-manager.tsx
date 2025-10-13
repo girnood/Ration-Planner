@@ -34,23 +34,30 @@ export function ProfileManager() {
   const [budget, setBudget] = useState<number>(1000);
   const { toast } = useToast();
   const avatarImage = PlaceHolderImages.find((img) => img.id === 'profile-avatar');
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
+    setIsClient(true);
     const storedBudget = localStorage.getItem('monthlyBudget');
     if (storedBudget) {
       try {
         const parsedBudget = parseFloat(storedBudget);
-        setBudget(parsedBudget);
-        form.reset({ budget: parsedBudget });
+        if(!isNaN(parsedBudget)) {
+          setBudget(parsedBudget);
+          form.reset({ budget: parsedBudget });
+        }
       } catch (error) {
         console.error("Failed to parse budget from localStorage", error);
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('monthlyBudget', budget.toString());
-  }, [budget]);
+    if (isClient) {
+      localStorage.setItem('monthlyBudget', budget.toString());
+    }
+  }, [budget, isClient]);
 
   const form = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),
@@ -65,6 +72,10 @@ export function ProfileManager() {
       title: 'تم تحديث الميزانية',
       description: `تم تحديد ميزانيتك الشهرية بمبلغ ${values.budget.toFixed(2)} ر.ع.`,
     });
+  }
+
+  if (!isClient) {
+    return null;
   }
 
   return (
