@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -32,10 +32,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { EssentialItem } from '@/lib/types';
-import { getAiSuggestions } from '@/lib/actions';
-import type { MonthlyEssentialsOutput } from '@/ai/flows/calculate-monthly-food-cost-and-reduction';
-import { Plus, Trash, Sparkles, Loader2, NotebookText } from 'lucide-react';
-import { AiResultsDialog } from './ai-results-dialog';
+import { Plus, Trash, NotebookText } from 'lucide-react';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'يجب أن يتكون اسم العنصر من حرفين على الأقل.' }),
@@ -45,10 +42,7 @@ const formSchema = z.object({
 
 export function EssentialsManager() {
   const [items, setItems] = useState<EssentialItem[]>([]);
-  const [isPending, startTransition] = useTransition();
   const { toast } = useToast();
-  const [aiResult, setAiResult] = useState<MonthlyEssentialsOutput | null>(null);
-  const [isDialogVisible, setDialogVisible] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -105,29 +99,6 @@ export function EssentialsManager() {
       });
     }
   }
-
-  const handleAiAnalysis = () => {
-    startTransition(async () => {
-      const itemNames = items.map((item) => {
-        let text = `${item.name} (الكمية: ${item.quantity})`;
-        if (item.price !== undefined) {
-          text += ` (السعر: ${item.price.toFixed(2)} ر.ع.)`
-        }
-        return text;
-      });
-      const result = await getAiSuggestions(itemNames);
-      if (result.success && result.data) {
-        setAiResult(result.data);
-        setDialogVisible(true);
-      } else {
-        toast({
-          title: 'خطأ',
-          description: result.error || 'فشل في الحصول على اقتراحات الذكاء الاصطناعي.',
-          variant: 'destructive',
-        });
-      }
-    });
-  };
 
   if (!isClient) {
     return null;
@@ -247,27 +218,8 @@ export function EssentialsManager() {
             <span className="font-semibold text-lg">التكلفة الإجمالية:</span>
             <span className="font-bold text-lg text-primary">{totalCost.toFixed(2)} ر.ع.</span>
           </div>
-          <Button
-            onClick={handleAiAnalysis}
-            disabled={isPending || items.length === 0}
-            className="ml-auto bg-accent hover:bg-accent/90 text-accent-foreground"
-          >
-            {isPending ? (
-              <Loader2 className="animate-spin" />
-            ) : (
-              <Sparkles />
-            )}
-            تحليل الإنفاق
-          </Button>
         </CardFooter>
       </Card>
-      
-      <AiResultsDialog
-        isOpen={isDialogVisible}
-        onClose={() => setDialogVisible(false)}
-        estimatedCost={aiResult?.estimatedCost}
-        costReductionPlan={aiResult?.costReductionPlan}
-      />
     </div>
   );
 }
