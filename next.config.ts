@@ -30,9 +30,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  experimental: {
-    serverComponentsExternalPackages: ['recharts'],
-  },
 };
 
 export default nextConfig;
