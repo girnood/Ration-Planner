@@ -8,6 +8,7 @@ import {
   NotebookText,
   CircleUser,
   PanelRight,
+  Calculator,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -27,6 +28,7 @@ import { PlaceHolderImages } from '@/lib/placeholder-images';
 const navItems = [
   { href: '/dashboard', icon: NotebookText, label: 'الأساسيات' },
   { href: '/dashboard/debt', icon: Landmark, label: 'متتبع الديون' },
+  { href: '/dashboard/income', icon: Calculator, label: 'حساب الدخل' },
 ];
 
 export function AppSidebar({ side = 'left' }: { side?: 'left' | 'right' }) {
