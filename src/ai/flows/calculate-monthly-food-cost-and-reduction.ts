@@ -3,8 +3,8 @@
  * @fileOverview This file defines a Genkit flow for calculating the estimated monthly food cost and providing a cost reduction plan.
  *
  * - calculateMonthlyFoodCostAndReduction - A function that takes a list of monthly essential items and returns the estimated cost and a cost reduction plan.
- * - MonthlyEssentialsInput - The input type for the calculateMonthlyFoodCostAndReduction function.
- * - MonthlyEssentialsOutput - The return type for the calculateMonthlyFoodCostAndReduction function.
+ * - MonthlyEssentialsInput - The input type for the calculateMonthlyFoodCodeAndReduction function.
+ * - MonthlyEssentialsOutput - The return type for the calculateMonthlyFoodCodeAndReduction function.
  */
 
 import {ai} from '@/ai/genkit';
@@ -22,8 +22,8 @@ const MonthlyEssentialsOutputSchema = z.object({
     .number()
     .describe('The estimated monthly food cost based on the provided items.'),
   costReductionPlan: z.string().describe(
-    'A plan with suggestions for reducing costs by identifying duplications,
-    opportunities for reduced expenses, without removing essential items.'
+    `A plan with suggestions for reducing costs by identifying duplications,
+    opportunities for reduced expenses, without removing essential items.`
   ),
 });
 export type MonthlyEssentialsOutput = z.infer<typeof MonthlyEssentialsOutputSchema>;
