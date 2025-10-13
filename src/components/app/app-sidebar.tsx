@@ -55,15 +55,16 @@ export function AppSidebar({ side = 'left' }: { side?: 'left' | 'right' }) {
         <SidebarMenu>
           {navItems.map((item) => (
             <SidebarMenuItem key={item.label}>
-              <Link href={item.href} passHref legacyBehavior>
-                <SidebarMenuButton
-                  isActive={pathname === item.href}
-                  tooltip={{ children: item.label, side: side === 'right' ? 'left' : 'right' }}
-                >
+              <SidebarMenuButton
+                asChild
+                isActive={pathname === item.href}
+                tooltip={{ children: item.label, side: side === 'right' ? 'left' : 'right' }}
+              >
+                <Link href={item.href}>
                   <item.icon />
                   <span>{item.label}</span>
-                </SidebarMenuButton>
-              </Link>
+                </Link>
+              </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
         </SidebarMenu>
@@ -71,18 +72,19 @@ export function AppSidebar({ side = 'left' }: { side?: 'left' | 'right' }) {
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
-            <Link href="/dashboard/profile" passHref legacyBehavior>
-              <SidebarMenuButton
-                isActive={pathname === '/dashboard/profile'}
-                tooltip={{ children: 'الملف الشخصي', side: side === 'right' ? 'left' : 'right' }}
-              >
+            <SidebarMenuButton
+              asChild
+              isActive={pathname === '/dashboard/profile'}
+              tooltip={{ children: 'الملف الشخصي', side: side === 'right' ? 'left' : 'right' }}
+            >
+              <Link href="/dashboard/profile">
                 <Avatar className="h-8 w-8">
                    {avatarImage && <AvatarImage src={avatarImage.imageUrl} alt="User Avatar" />}
                   <AvatarFallback>U</AvatarFallback>
                 </Avatar>
                 <span className="truncate">ملف المستخدم</span>
-              </SidebarMenuButton>
-            </Link>
+              </Link>
+            </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
