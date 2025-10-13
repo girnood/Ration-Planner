@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import dynamic from 'next/dynamic';
 import {
   Card,
   CardContent,
@@ -36,13 +37,25 @@ import { getAiSuggestions } from '@/lib/actions';
 import type { MonthlyEssentialsOutput } from '@/ai/flows/calculate-monthly-food-cost-and-reduction';
 import { Plus, Trash, Sparkles, Loader2, NotebookText, BarChart2 } from 'lucide-react';
 import { AiResultsDialog } from './ai-results-dialog';
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from '@/components/ui/chart';
+import { Skeleton } from '@/components/ui/skeleton';
+
+const ChartContainer = dynamic(
+  () => import('@/components/ui/chart').then((mod) => mod.ChartContainer),
+  {
+    ssr: false,
+    loading: () => <Skeleton className="w-full h-[250px]" />,
+  }
+);
+const BarChart = dynamic(() => import('recharts').then((mod) => mod.BarChart), { ssr: false });
+const CartesianGrid = dynamic(() => import('recharts').then((mod) => mod.CartesianGrid), { ssr: false });
+const XAxis = dynamic(() => import('recharts').then((mod) => mod.XAxis), { ssr: false });
+const YAxis = dynamic(() => import('recharts').then((mod) => mod.YAxis), { ssr: false });
+const Tooltip = dynamic(() => import('recharts').then((mod) => mod.Tooltip), { ssr: false });
+const Bar = dynamic(() => import('recharts').then((mod) => mod.Bar), { ssr: false });
+const ChartTooltipContent = dynamic(
+  () => import('@/components/ui/chart').then((mod) => mod.ChartTooltipContent),
+  { ssr: false }
+);
 
 
 const formSchema = z.object({
@@ -88,7 +101,7 @@ export function EssentialsManager() {
       label: 'التكلفة',
       color: 'hsl(var(--primary))',
     },
-  } satisfies ChartConfig;
+  };
 
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -331,3 +344,5 @@ export function EssentialsManager() {
     </div>
   );
 }
+
+    
