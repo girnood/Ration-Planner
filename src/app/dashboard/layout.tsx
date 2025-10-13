@@ -12,7 +12,7 @@ export default function DashboardLayout({
 }) {
   return (
     <SidebarProvider>
-      <div className="flex flex-row-reverse">
+      <div className="flex">
         <AppSidebar side="right" />
         <SidebarInset className="flex-1">
           <header className="p-4 md:p-6 lg:hidden">
