@@ -23,7 +23,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { PiggyBank, Save, Plus, Trash } from 'lucide-react';
+import { Goal, Save, Plus, Trash } from 'lucide-react';
 import type { SavingsContribution } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 
@@ -114,7 +114,7 @@ export function IncomeCalculator() {
       <Card>
         <CardHeader>
           <div className="flex items-center gap-4">
-            <PiggyBank className="h-10 w-10 text-primary" />
+            <Goal className="h-10 w-10 text-primary" />
             <div>
               <CardTitle>هدف الادخار السنوي</CardTitle>
               <CardDescription>حدد هدف الادخار السنوي الخاص بك.</CardDescription>
