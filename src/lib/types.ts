@@ -15,3 +15,9 @@ export type Debt = {
     date: Date;
   }[];
 };
+
+export type SavingsContribution = {
+  id: string;
+  amount: number;
+  date: Date;
+};
