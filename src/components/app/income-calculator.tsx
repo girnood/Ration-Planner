@@ -23,7 +23,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { PiggyBank, Save, Plus } from 'lucide-react';
+import { PiggyBank, Save, Plus, Trash } from 'lucide-react';
 import type { SavingsContribution } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
 
@@ -63,7 +63,7 @@ export function IncomeCalculator() {
     goalForm.reset({ amount: values.amount });
     toast({
       title: 'تم تحديث هدف الادخار',
-      description: `تم تحديد هدف الادخار الشهري بمبلغ ${values.amount.toFixed(
+      description: `تم تحديد هدف الادخار السنوي بمبلغ ${values.amount.toFixed(
         2
       )} ر.ع.`,
     });
@@ -85,6 +85,18 @@ export function IncomeCalculator() {
     });
   }
 
+  function deleteContribution(id: string) {
+    const contributionAmount = contributions.find(c => c.id === id)?.amount;
+    setContributions((prev) => prev.filter((c) => c.id !== id));
+    if (contributionAmount) {
+      toast({
+        title: 'تم حذف المساهمة',
+        description: `تمت إزالة مساهمة بمبلغ ${contributionAmount.toFixed(2)} ر.ع.`,
+        variant: 'destructive'
+      });
+    }
+  }
+
   const totalSavings = contributions.reduce(
     (sum, item) => sum + item.amount,
     0
@@ -95,7 +107,7 @@ export function IncomeCalculator() {
       <div>
         <h1 className="font-headline text-2xl">حساب الادخار</h1>
         <p className="text-muted-foreground">
-          أدخل المبلغ الذي تهدف إلى توفيره شهريًا وسجل مساهماتك.
+          أدخل المبلغ الذي تهدف إلى توفيره سنويًا وسجل مساهماتك.
         </p>
       </div>
 
@@ -104,8 +116,8 @@ export function IncomeCalculator() {
           <div className="flex items-center gap-4">
             <PiggyBank className="h-10 w-10 text-primary" />
             <div>
-              <CardTitle>هدف الادخار الشهري</CardTitle>
-              <CardDescription>حدد هدف الادخار الشهري الخاص بك.</CardDescription>
+              <CardTitle>هدف الادخار السنوي</CardTitle>
+              <CardDescription>حدد هدف الادخار السنوي الخاص بك.</CardDescription>
             </div>
           </div>
         </CardHeader>
@@ -120,7 +132,7 @@ export function IncomeCalculator() {
                 name="amount"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>مبلغ الادخار الشهري</FormLabel>
+                    <FormLabel>مبلغ الادخار السنوي</FormLabel>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground">
                         ر.ع
@@ -197,12 +209,17 @@ export function IncomeCalculator() {
                   contributions.map((item) => (
                     <div
                       key={item.id}
-                      className="flex justify-between items-center text-sm p-1"
+                      className="flex justify-between items-center text-sm p-1 group"
                     >
                       <span>{new Date(item.date).toLocaleDateString()}</span>
-                      <span className="font-medium">
-                        {item.amount.toFixed(2)} ر.ع.
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">
+                          {item.amount.toFixed(2)} ر.ع.
+                        </span>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => deleteContribution(item.id)}>
+                            <Trash className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </div>
                   ))
                 ) : (
@@ -224,7 +241,7 @@ export function IncomeCalculator() {
           </div>
           {savingsGoal > 0 && (
              <div className="flex justify-between w-full text-sm">
-                <span className="text-muted-foreground">الهدف الشهري:</span>
+                <span className="text-muted-foreground">الهدف السنوي:</span>
                 <span className="text-muted-foreground">{savingsGoal.toFixed(2)} ر.ع.</span>
             </div>
           )}
