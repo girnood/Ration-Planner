@@ -39,12 +39,12 @@ import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 
 const addDebtSchema = z.object({
-  creditor: z.string().min(2, { message: 'Creditor name is required.' }),
-  initialAmount: z.coerce.number().positive({ message: 'Amount must be positive.' }),
+  creditor: z.string().min(2, { message: 'اسم الدائن مطلوب.' }),
+  initialAmount: z.coerce.number().positive({ message: 'يجب أن يكون المبلغ موجبًا.' }),
 });
 
 const addPaymentSchema = z.object({
-  amount: z.coerce.number().positive({ message: 'Payment must be positive.' }),
+  amount: z.coerce.number().positive({ message: 'يجب أن يكون الدفع موجبًا.' }),
 });
 
 function DebtCard({ debt, onAddPayment }: { debt: Debt; onAddPayment: (debtId: string, amount: number) => void }) {
@@ -61,7 +61,7 @@ function DebtCard({ debt, onAddPayment }: { debt: Debt; onAddPayment: (debtId: s
 
   function onSubmit(values: z.infer<typeof addPaymentSchema>) {
     if (values.amount > remaining) {
-      form.setError('amount', { message: `Cannot pay more than remaining $${remaining.toFixed(2)}`});
+      form.setError('amount', { message: `لا يمكن دفع أكثر من المتبقي ${remaining.toFixed(2)} ر.ع.`});
       return;
     }
     onAddPayment(debt.id, values.amount);
@@ -74,32 +74,32 @@ function DebtCard({ debt, onAddPayment }: { debt: Debt; onAddPayment: (debtId: s
       <CardHeader>
         <CardTitle className="font-headline text-xl">{debt.creditor}</CardTitle>
         <CardDescription>
-          Initial Debt: ${debt.initialAmount.toFixed(2)}
+          الدين الأولي: {debt.initialAmount.toFixed(2)} ر.ع.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex-grow space-y-4">
         <div>
           <div className="flex justify-between mb-1 text-sm">
-            <span className="font-medium text-muted-foreground">Paid</span>
-            <span className="font-medium text-primary">${totalPaid.toFixed(2)}</span>
+            <span className="font-medium text-muted-foreground">المدفوع</span>
+            <span className="font-medium text-primary">{totalPaid.toFixed(2)} ر.ع.</span>
           </div>
           <Progress value={progress} />
           <div className="text-right mt-1 text-sm font-medium">
-            Remaining: ${remaining.toFixed(2)}
+            المتبقي: {remaining.toFixed(2)} ر.ع.
           </div>
         </div>
         <Separator />
-         <h4 className="text-sm font-medium">Payment History</h4>
+         <h4 className="text-sm font-medium">سجل المدفوعات</h4>
         <div className="text-sm text-muted-foreground space-y-1 max-h-24 overflow-y-auto">
           {debt.payments.length > 0 ? (
             debt.payments.map((p) => (
               <div key={p.id} className="flex justify-between">
                 <span>{new Date(p.date).toLocaleDateString()}</span>
-                <span>${p.amount.toFixed(2)}</span>
+                <span>{p.amount.toFixed(2)} ر.ع.</span>
               </div>
             ))
           ) : (
-            <p>No payments made yet.</p>
+            <p>لم تتم أي مدفوعات بعد.</p>
           )}
         </div>
       </CardContent>
@@ -107,12 +107,12 @@ function DebtCard({ debt, onAddPayment }: { debt: Debt; onAddPayment: (debtId: s
          <Dialog open={isPaymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
           <DialogTrigger asChild>
             <Button className="w-full bg-accent text-accent-foreground hover:bg-accent/90" disabled={remaining <= 0}>
-              <HandCoins /> {remaining > 0 ? 'Add Payment' : 'Paid in Full'}
+              <HandCoins /> {remaining > 0 ? 'إضافة دفعة' : 'مدفوع بالكامل'}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add Payment for {debt.creditor}</DialogTitle>
+              <DialogTitle>إضافة دفعة لـ {debt.creditor}</DialogTitle>
             </DialogHeader>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -121,7 +121,7 @@ function DebtCard({ debt, onAddPayment }: { debt: Debt; onAddPayment: (debtId: s
                   name="amount"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Payment Amount</FormLabel>
+                      <FormLabel>مبلغ الدفعة</FormLabel>
                       <FormControl>
                          <Input type="number" placeholder="0.00" {...field} />
                       </FormControl>
@@ -131,9 +131,9 @@ function DebtCard({ debt, onAddPayment }: { debt: Debt; onAddPayment: (debtId: s
                 />
                 <DialogFooter>
                   <DialogClose asChild>
-                    <Button type="button" variant="secondary">Cancel</Button>
+                    <Button type="button" variant="secondary">إلغاء</Button>
                   </DialogClose>
-                  <Button type="submit">Add Payment</Button>
+                  <Button type="submit">إضافة دفعة</Button>
                 </DialogFooter>
               </form>
             </Form>
@@ -165,8 +165,8 @@ export function DebtManager() {
     form.reset();
     setAddDebtOpen(false);
     toast({
-      title: 'Debt Added',
-      description: `Debt to ${values.creditor} for $${values.initialAmount.toFixed(2)} has been added.`,
+      title: 'تمت إضافة الدين',
+      description: `تمت إضافة الدين إلى ${values.creditor} بمبلغ ${values.initialAmount.toFixed(2)} ر.ع.`,
     });
   }
   
@@ -179,8 +179,8 @@ export function DebtManager() {
       return debt;
     }));
     toast({
-      title: "Payment Added",
-      description: `Payment of $${amount.toFixed(2)} recorded.`
+      title: "تمت إضافة الدفعة",
+      description: `تم تسجيل دفعة بمبلغ ${amount.toFixed(2)} ر.ع.`
     })
   }
 
@@ -188,21 +188,21 @@ export function DebtManager() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-headline text-2xl">Debt Tracker</h1>
-          <p className="text-muted-foreground">Manage your outstanding debts and payments.</p>
+          <h1 className="font-headline text-2xl">متتبع الديون</h1>
+          <p className="text-muted-foreground">إدارة ديونك المستحقة والمدفوعات.</p>
         </div>
          <Dialog open={isAddDebtOpen} onOpenChange={setAddDebtOpen}>
           <DialogTrigger asChild>
             <Button>
               <Plus />
-              Add New Debt
+              إضافة دين جديد
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add a New Debt</DialogTitle>
+              <DialogTitle>إضافة دين جديد</DialogTitle>
               <DialogDescription>
-                Enter the details of the debt you want to track.
+                أدخل تفاصيل الدين الذي تريد تتبعه.
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
@@ -212,9 +212,9 @@ export function DebtManager() {
                   name="creditor"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Creditor Name</FormLabel>
+                      <FormLabel>اسم الدائن</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g., Bank Loan" {...field} />
+                        <Input placeholder="مثال: قرض بنكي" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -225,7 +225,7 @@ export function DebtManager() {
                   name="initialAmount"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Initial Amount</FormLabel>
+                      <FormLabel>المبلغ الأولي</FormLabel>
                       <FormControl>
                         <Input type="number" placeholder="0.00" {...field} />
                       </FormControl>
@@ -235,9 +235,9 @@ export function DebtManager() {
                 />
                 <DialogFooter>
                   <DialogClose asChild>
-                    <Button type="button" variant="secondary">Cancel</Button>
+                    <Button type="button" variant="secondary">إلغاء</Button>
                   </DialogClose>
-                  <Button type="submit">Add Debt</Button>
+                  <Button type="submit">إضافة دين</Button>
                 </DialogFooter>
               </form>
             </Form>
@@ -255,8 +255,8 @@ export function DebtManager() {
         <Card className="flex flex-col items-center justify-center py-24">
           <CardContent className="text-center text-muted-foreground">
             <Landmark className="mx-auto h-12 w-12 mb-4" />
-            <p className="font-semibold">No debts tracked yet.</p>
-            <p>Click "Add New Debt" to get started.</p>
+            <p className="font-semibold">لا توجد ديون متتبعة بعد.</p>
+            <p>انقر على "إضافة دين جديد" للبدء.</p>
           </CardContent>
         </Card>
       )}

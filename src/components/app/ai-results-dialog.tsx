@@ -29,27 +29,27 @@ export function AiResultsDialog({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-headline">AI Analysis Complete</DialogTitle>
+          <DialogTitle className="font-headline">اكتمل تحليل الذكاء الاصطناعي</DialogTitle>
           <DialogDescription>
-            Here is your estimated monthly cost and a plan to help you save.
+            ها هي التكلفة الشهرية المقدرة وخطة لمساعدتك على التوفير.
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <h3 className="font-semibold text-lg mb-2">Estimated Monthly Cost</h3>
+            <h3 className="font-semibold text-lg mb-2">التكلفة الشهرية المقدرة</h3>
             <Badge variant="secondary" className="text-xl font-bold">
-              ${(estimatedCost ?? 0).toFixed(2)}
+              {(estimatedCost ?? 0).toFixed(2)} ر.ع.
             </Badge>
           </div>
           <div>
-            <h3 className="font-semibold text-lg mb-2">Cost Reduction Plan</h3>
+            <h3 className="font-semibold text-lg mb-2">خطة خفض التكاليف</h3>
             <ScrollArea className="h-48 rounded-md border p-4 bg-muted/50">
               <p className="text-sm whitespace-pre-wrap">{costReductionPlan}</p>
             </ScrollArea>
           </div>
         </div>
         <DialogFooter>
-          <Button onClick={onClose}>Close</Button>
+          <Button onClick={onClose}>إغلاق</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

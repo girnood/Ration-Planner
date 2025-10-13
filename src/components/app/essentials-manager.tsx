@@ -38,8 +38,8 @@ import { Plus, Trash, Sparkles, Loader2, NotebookText } from 'lucide-react';
 import { AiResultsDialog } from './ai-results-dialog';
 
 const formSchema = z.object({
-  name: z.string().min(2, { message: 'Item name must be at least 2 characters.' }),
-  quantity: z.coerce.number().min(1, { message: 'Quantity must be at least 1.' }),
+  name: z.string().min(2, { message: 'يجب أن يتكون اسم العنصر من حرفين على الأقل.' }),
+  quantity: z.coerce.number().min(1, { message: 'يجب أن تكون الكمية 1 على الأقل.' }),
 });
 
 export function EssentialsManager() {
@@ -66,8 +66,8 @@ export function EssentialsManager() {
     setItems((prev) => [...prev, newItem]);
     form.reset();
     toast({
-      title: 'Item Added',
-      description: `"${values.name}" has been added to your list.`,
+      title: 'تمت إضافة العنصر',
+      description: `تمت إضافة "${values.name}" إلى قائمتك.`,
     });
   }
 
@@ -76,8 +76,8 @@ export function EssentialsManager() {
     setItems((prev) => prev.filter((item) => item.id !== id));
     if (itemName) {
       toast({
-        title: 'Item Removed',
-        description: `"${itemName}" has been removed from your list.`,
+        title: 'تمت إزالة العنصر',
+        description: `تمت إزالة "${itemName}" من قائمتك.`,
         variant: 'destructive',
       });
     }
@@ -85,15 +85,15 @@ export function EssentialsManager() {
 
   const handleAiAnalysis = () => {
     startTransition(async () => {
-      const itemNames = items.map((item) => `${item.name} (Quantity: ${item.quantity})`);
+      const itemNames = items.map((item) => `${item.name} (الكمية: ${item.quantity})`);
       const result = await getAiSuggestions(itemNames);
       if (result.success && result.data) {
         setAiResult(result.data);
         setDialogVisible(true);
       } else {
         toast({
-          title: 'Error',
-          description: result.error || 'Failed to get AI suggestions.',
+          title: 'خطأ',
+          description: result.error || 'فشل في الحصول على اقتراحات الذكاء الاصطناعي.',
           variant: 'destructive',
         });
       }
@@ -104,9 +104,9 @@ export function EssentialsManager() {
     <>
       <Card>
         <CardHeader>
-          <CardTitle className="font-headline text-2xl">Monthly Essentials</CardTitle>
+          <CardTitle className="font-headline text-2xl">المستلزمات الشهرية</CardTitle>
           <CardDescription>
-            Add items to your monthly shopping list.
+            أضف عناصر إلى قائمة التسوق الشهرية.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -117,9 +117,9 @@ export function EssentialsManager() {
                 name="name"
                 render={({ field }) => (
                   <FormItem className="flex-grow">
-                    <FormLabel>Item Name</FormLabel>
+                    <FormLabel>اسم العنصر</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g., Milk" {...field} />
+                      <Input placeholder="مثال: حليب" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -130,7 +130,7 @@ export function EssentialsManager() {
                 name="quantity"
                 render={({ field }) => (
                   <FormItem className="w-full sm:w-auto">
-                    <FormLabel>Quantity</FormLabel>
+                    <FormLabel>الكمية</FormLabel>
                     <FormControl>
                       <Input type="number" min="1" className="w-full sm:w-24" {...field} />
                     </FormControl>
@@ -140,7 +140,7 @@ export function EssentialsManager() {
               />
               <Button type="submit" className="w-full sm:w-auto bg-primary hover:bg-primary/90">
                 <Plus />
-                Add Item
+                إضافة عنصر
               </Button>
             </form>
           </Form>
@@ -149,9 +149,9 @@ export function EssentialsManager() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Item</TableHead>
-                  <TableHead className="w-[100px] text-center">Quantity</TableHead>
-                  <TableHead className="w-[100px] text-right">Actions</TableHead>
+                  <TableHead>العنصر</TableHead>
+                  <TableHead className="w-[100px] text-center">الكمية</TableHead>
+                  <TableHead className="w-[100px] text-right">الإجراءات</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -165,7 +165,7 @@ export function EssentialsManager() {
                           variant="ghost"
                           size="icon"
                           onClick={() => deleteItem(item.id)}
-                          aria-label={`Delete ${item.name}`}
+                          aria-label={`حذف ${item.name}`}
                         >
                           <Trash className="text-destructive" />
                         </Button>
@@ -177,7 +177,7 @@ export function EssentialsManager() {
                     <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <NotebookText className="h-8 w-8" />
-                        <span>No items yet. Add one above to get started.</span>
+                        <span>لا توجد عناصر حتى الآن. أضف واحدة أعلاه للبدء.</span>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -197,7 +197,7 @@ export function EssentialsManager() {
             ) : (
               <Sparkles />
             )}
-            Analyze Spending
+            تحليل الإنفاق
           </Button>
         </CardFooter>
       </Card>

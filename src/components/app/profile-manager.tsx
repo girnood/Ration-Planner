@@ -24,10 +24,10 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { DollarSign, Save } from 'lucide-react';
+import { Save } from 'lucide-react';
 
 const profileSchema = z.object({
-  budget: z.coerce.number().positive({ message: 'Budget must be a positive number.' }),
+  budget: z.coerce.number().positive({ message: 'يجب أن تكون الميزانية رقمًا موجبًا.' }),
 });
 
 export function ProfileManager() {
@@ -45,16 +45,16 @@ export function ProfileManager() {
   function onSubmit(values: z.infer<typeof profileSchema>) {
     setBudget(values.budget);
     toast({
-      title: 'Budget Updated',
-      description: `Your monthly budget has been set to $${values.budget.toFixed(2)}.`,
+      title: 'تم تحديث الميزانية',
+      description: `تم تحديد ميزانيتك الشهرية بمبلغ ${values.budget.toFixed(2)} ر.ع.`,
     });
   }
 
   return (
     <div className="space-y-6">
        <div>
-          <h1 className="font-headline text-2xl">Profile & Settings</h1>
-          <p className="text-muted-foreground">Manage your budget and personal information.</p>
+          <h1 className="font-headline text-2xl">الملف الشخصي والإعدادات</h1>
+          <p className="text-muted-foreground">إدارة ميزانيتك ومعلوماتك الشخصية.</p>
         </div>
 
       <Card>
@@ -64,9 +64,9 @@ export function ProfileManager() {
             <AvatarFallback>U</AvatarFallback>
           </Avatar>
           <div>
-            <CardTitle className="font-headline text-xl">Welcome!</CardTitle>
+            <CardTitle className="font-headline text-xl">أهلاً بك!</CardTitle>
             <CardDescription>
-              Set your monthly spending target below.
+              حدد هدف الإنفاق الشهري أدناه.
             </CardDescription>
           </div>
         </CardHeader>
@@ -78,14 +78,14 @@ export function ProfileManager() {
                 name="budget"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Monthly Budget</FormLabel>
+                    <FormLabel>الميزانية الشهرية</FormLabel>
                     <div className="relative">
-                      <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground">ر.ع</span>
                       <FormControl>
                         <Input
                           type="number"
                           placeholder="1000.00"
-                          className="pl-8"
+                          className="pl-10"
                           {...field}
                         />
                       </FormControl>
@@ -96,7 +96,7 @@ export function ProfileManager() {
               />
               <Button type="submit">
                 <Save />
-                Save Budget
+                حفظ الميزانية
               </Button>
             </form>
           </Form>

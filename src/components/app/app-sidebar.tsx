@@ -25,8 +25,8 @@ import { useSidebar } from '@/components/ui/sidebar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
 
 const navItems = [
-  { href: '/dashboard', icon: NotebookText, label: 'Essentials' },
-  { href: '/dashboard/debt', icon: Landmark, label: 'Debt Tracker' },
+  { href: '/dashboard', icon: NotebookText, label: 'الأساسيات' },
+  { href: '/dashboard/debt', icon: Landmark, label: 'متتبع الديون' },
 ];
 
 export function AppSidebar() {
@@ -72,13 +72,13 @@ export function AppSidebar() {
             <Link href="/dashboard/profile" passHref legacyBehavior>
               <SidebarMenuButton
                 isActive={pathname === '/dashboard/profile'}
-                tooltip={{ children: 'Profile' }}
+                tooltip={{ children: 'الملف الشخصي' }}
               >
                 <Avatar className="h-8 w-8">
                    {avatarImage && <AvatarImage src={avatarImage.imageUrl} alt="User Avatar" />}
                   <AvatarFallback>U</AvatarFallback>
                 </Avatar>
-                <span className="truncate">User Profile</span>
+                <span className="truncate">ملف المستخدم</span>
               </SidebarMenuButton>
             </Link>
           </SidebarMenuItem>
