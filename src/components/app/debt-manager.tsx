@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -34,7 +34,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Debt } from '@/lib/types';
-import { Plus, Landmark, HandCoins, Loader2 } from 'lucide-react';
+import { Plus, Landmark, HandCoins } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 
@@ -150,6 +150,28 @@ export function DebtManager() {
   const [isAddDebtOpen, setAddDebtOpen] = useState(false);
   const { toast } = useToast();
 
+  useEffect(() => {
+    const storedDebts = localStorage.getItem('debts');
+    if (storedDebts) {
+      try {
+        const parsedDebts = JSON.parse(storedDebts, (key, value) => {
+          if (key === 'date') {
+            return new Date(value);
+          }
+          return value;
+        });
+        setDebts(parsedDebts);
+      } catch (error) {
+        console.error("Failed to parse debts from localStorage", error);
+        setDebts([]);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('debts', JSON.stringify(debts));
+  }, [debts]);
+  
   const form = useForm<z.infer<typeof addDebtSchema>>({
     resolver: zodResolver(addDebtSchema),
     defaultValues: { creditor: '', initialAmount: 0 },

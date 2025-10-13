@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -34,6 +34,23 @@ export function ProfileManager() {
   const [budget, setBudget] = useState<number>(1000);
   const { toast } = useToast();
   const avatarImage = PlaceHolderImages.find((img) => img.id === 'profile-avatar');
+
+  useEffect(() => {
+    const storedBudget = localStorage.getItem('monthlyBudget');
+    if (storedBudget) {
+      try {
+        const parsedBudget = parseFloat(storedBudget);
+        setBudget(parsedBudget);
+        form.reset({ budget: parsedBudget });
+      } catch (error) {
+        console.error("Failed to parse budget from localStorage", error);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('monthlyBudget', budget.toString());
+  }, [budget]);
 
   const form = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),

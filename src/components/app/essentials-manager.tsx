@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -49,6 +49,22 @@ export function EssentialsManager() {
   const { toast } = useToast();
   const [aiResult, setAiResult] = useState<MonthlyEssentialsOutput | null>(null);
   const [isDialogVisible, setDialogVisible] = useState(false);
+
+  useEffect(() => {
+    const storedItems = localStorage.getItem('essentialItems');
+    if (storedItems) {
+      try {
+        setItems(JSON.parse(storedItems));
+      } catch (error) {
+        console.error("Failed to parse essential items from localStorage", error);
+        setItems([]);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('essentialItems', JSON.stringify(items));
+  }, [items]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -43,6 +43,43 @@ export function IncomeCalculator() {
   const [savingsGoal, setSavingsGoal] = useState<number>(0);
   const [contributions, setContributions] = useState<SavingsContribution[]>([]);
   const { toast } = useToast();
+
+  useEffect(() => {
+    const storedGoal = localStorage.getItem('savingsGoal');
+    if (storedGoal) {
+      try {
+        const parsedGoal = parseFloat(storedGoal);
+        setSavingsGoal(parsedGoal);
+        goalForm.reset({ amount: parsedGoal });
+      } catch (error) {
+        console.error("Failed to parse savings goal from localStorage", error);
+      }
+    }
+
+    const storedContributions = localStorage.getItem('savingsContributions');
+    if (storedContributions) {
+       try {
+        const parsedContributions = JSON.parse(storedContributions, (key, value) => {
+          if (key === 'date') {
+            return new Date(value);
+          }
+          return value;
+        });
+        setContributions(parsedContributions);
+      } catch (error) {
+        console.error("Failed to parse contributions from localStorage", error);
+        setContributions([]);
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    localStorage.setItem('savingsGoal', savingsGoal.toString());
+  }, [savingsGoal]);
+
+  useEffect(() => {
+    localStorage.setItem('savingsContributions', JSON.stringify(contributions));
+  }, [contributions]);
 
   const goalForm = useForm<z.infer<typeof savingsGoalSchema>>({
     resolver: zodResolver(savingsGoalSchema),
@@ -162,7 +199,7 @@ export function IncomeCalculator() {
       <Card>
         <CardHeader>
           <CardTitle>إدارة المدخرات</CardTitle>
-          <CardDescription>أضف مساهماتك في الادخار هنا.</CardDescription>
+          <CardDescription>أضف مساهماتك في الادخar هنا.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-2 gap-8">
