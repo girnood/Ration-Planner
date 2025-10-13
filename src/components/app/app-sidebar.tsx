@@ -7,7 +7,7 @@ import {
   Landmark,
   NotebookText,
   CircleUser,
-  PanelLeft,
+  PanelRight,
 } from 'lucide-react';
 import {
   Sidebar,
@@ -29,13 +29,13 @@ const navItems = [
   { href: '/dashboard/debt', icon: Landmark, label: 'متتبع الديون' },
 ];
 
-export function AppSidebar() {
+export function AppSidebar({ side = 'left' }: { side?: 'left' | 'right' }) {
   const pathname = usePathname();
   const { toggleSidebar } = useSidebar();
   const avatarImage = PlaceHolderImages.find((img) => img.id === 'profile-avatar');
 
   return (
-    <Sidebar>
+    <Sidebar side={side}>
       <SidebarHeader>
         <div className="flex items-center justify-between">
           <Logo />
@@ -45,7 +45,7 @@ export function AppSidebar() {
             className="md:hidden"
             onClick={toggleSidebar}
           >
-            <PanelLeft />
+            <PanelRight />
           </Button>
         </div>
       </SidebarHeader>
@@ -56,7 +56,7 @@ export function AppSidebar() {
               <Link href={item.href} passHref legacyBehavior>
                 <SidebarMenuButton
                   isActive={pathname === item.href}
-                  tooltip={{ children: item.label }}
+                  tooltip={{ children: item.label, side: side === 'right' ? 'left' : 'right' }}
                 >
                   <item.icon />
                   <span>{item.label}</span>
@@ -72,7 +72,7 @@ export function AppSidebar() {
             <Link href="/dashboard/profile" passHref legacyBehavior>
               <SidebarMenuButton
                 isActive={pathname === '/dashboard/profile'}
-                tooltip={{ children: 'الملف الشخصي' }}
+                tooltip={{ children: 'الملف الشخصي', side: side === 'right' ? 'left' : 'right' }}
               >
                 <Avatar className="h-8 w-8">
                    {avatarImage && <AvatarImage src={avatarImage.imageUrl} alt="User Avatar" />}

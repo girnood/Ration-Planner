@@ -12,13 +12,15 @@ export default function DashboardLayout({
 }) {
   return (
     <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <header className="p-4 md:p-6 lg:hidden">
-          <SidebarTrigger />
-        </header>
-        <main className="p-4 md:p-6">{children}</main>
-      </SidebarInset>
+      <div className="flex flex-row-reverse">
+        <AppSidebar side="right" />
+        <SidebarInset className="flex-1">
+          <header className="p-4 md:p-6 lg:hidden">
+            <SidebarTrigger />
+          </header>
+          <main className="p-4 md:p-6">{children}</main>
+        </SidebarInset>
+      </div>
     </SidebarProvider>
   );
 }

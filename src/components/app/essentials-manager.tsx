@@ -40,6 +40,7 @@ import { AiResultsDialog } from './ai-results-dialog';
 const formSchema = z.object({
   name: z.string().min(2, { message: 'يجب أن يتكون اسم العنصر من حرفين على الأقل.' }),
   quantity: z.coerce.number().min(1, { message: 'يجب أن تكون الكمية 1 على الأقل.' }),
+  price: z.coerce.number().min(0, { message: 'يجب أن يكون السعر رقمًا موجبًا.' }).optional(),
 });
 
 export function EssentialsManager() {
@@ -54,6 +55,7 @@ export function EssentialsManager() {
     defaultValues: {
       name: '',
       quantity: 1,
+      price: undefined
     },
   });
 
@@ -62,6 +64,7 @@ export function EssentialsManager() {
       id: crypto.randomUUID(),
       name: values.name,
       quantity: values.quantity,
+      price: values.price,
     };
     setItems((prev) => [...prev, newItem]);
     form.reset();
@@ -85,7 +88,13 @@ export function EssentialsManager() {
 
   const handleAiAnalysis = () => {
     startTransition(async () => {
-      const itemNames = items.map((item) => `${item.name} (الكمية: ${item.quantity})`);
+      const itemNames = items.map((item) => {
+        let text = `${item.name} (الكمية: ${item.quantity})`;
+        if (item.price !== undefined) {
+          text += ` (السعر: ${item.price.toFixed(2)} ر.ع.)`
+        }
+        return text;
+      });
       const result = await getAiSuggestions(itemNames);
       if (result.success && result.data) {
         setAiResult(result.data);
@@ -99,6 +108,8 @@ export function EssentialsManager() {
       }
     });
   };
+
+  const totalCost = items.reduce((total, item) => total + (item.price ?? 0) * item.quantity, 0);
 
   return (
     <>
@@ -125,14 +136,27 @@ export function EssentialsManager() {
                   </FormItem>
                 )}
               />
+               <FormField
+                control={form.control}
+                name="price"
+                render={({ field }) => (
+                  <FormItem className="w-full sm:w-32">
+                    <FormLabel>السعر (اختياري)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" placeholder="0.00" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="quantity"
                 render={({ field }) => (
-                  <FormItem className="w-full sm:w-auto">
+                  <FormItem className="w-full sm:w-24">
                     <FormLabel>الكمية</FormLabel>
                     <FormControl>
-                      <Input type="number" min="1" className="w-full sm:w-24" {...field} />
+                      <Input type="number" min="1" className="w-full" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -150,7 +174,9 @@ export function EssentialsManager() {
               <TableHeader>
                 <TableRow>
                   <TableHead>العنصر</TableHead>
+                  <TableHead className="w-[120px] text-center">السعر الفردي</TableHead>
                   <TableHead className="w-[100px] text-center">الكمية</TableHead>
+                  <TableHead className="w-[120px] text-center">السعر الإجمالي</TableHead>
                   <TableHead className="w-[100px] text-right">الإجراءات</TableHead>
                 </TableRow>
               </TableHeader>
@@ -159,7 +185,13 @@ export function EssentialsManager() {
                   items.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">{item.name}</TableCell>
+                      <TableCell className="text-center">
+                        {item.price !== undefined ? `${item.price.toFixed(2)} ر.ع.` : '-'}
+                      </TableCell>
                       <TableCell className="text-center">{item.quantity}</TableCell>
+                      <TableCell className="text-center">
+                        {item.price !== undefined ? `${(item.price * item.quantity).toFixed(2)} ر.ع.` : '-'}
+                      </TableCell>
                       <TableCell className="text-right">
                         <Button
                           variant="ghost"
@@ -174,7 +206,7 @@ export function EssentialsManager() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <NotebookText className="h-8 w-8" />
                         <span>لا توجد عناصر حتى الآن. أضف واحدة أعلاه للبدء.</span>
@@ -186,7 +218,11 @@ export function EssentialsManager() {
             </Table>
           </div>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex-col items-start gap-2">
+           <div className="flex justify-between w-full">
+            <span className="font-semibold text-lg">التكلفة الإجمالية:</span>
+            <span className="font-bold text-lg text-primary">{totalCost.toFixed(2)} ر.ع.</span>
+          </div>
           <Button
             onClick={handleAiAnalysis}
             disabled={isPending || items.length === 0}
