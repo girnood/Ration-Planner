@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition, useEffect } from 'react';
+import { useState, useTransition, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -34,8 +34,16 @@ import { useToast } from '@/hooks/use-toast';
 import { EssentialItem } from '@/lib/types';
 import { getAiSuggestions } from '@/lib/actions';
 import type { MonthlyEssentialsOutput } from '@/ai/flows/calculate-monthly-food-cost-and-reduction';
-import { Plus, Trash, Sparkles, Loader2, NotebookText } from 'lucide-react';
+import { Plus, Trash, Sparkles, Loader2, NotebookText, BarChart2 } from 'lucide-react';
 import { AiResultsDialog } from './ai-results-dialog';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from '@/components/ui/chart';
+
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'يجب أن يتكون اسم العنصر من حرفين على الأقل.' }),
@@ -65,6 +73,23 @@ export function EssentialsManager() {
   useEffect(() => {
     localStorage.setItem('essentialItems', JSON.stringify(items));
   }, [items]);
+  
+  const chartData = useMemo(() => {
+    return items
+      .filter(item => item.price !== undefined && item.price > 0)
+      .map(item => ({
+        name: item.name,
+        cost: (item.price ?? 0) * item.quantity,
+      }));
+  }, [items]);
+
+  const chartConfig = {
+    cost: {
+      label: 'التكلفة',
+      color: 'hsl(var(--primary))',
+    },
+  } satisfies ChartConfig;
+
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -128,7 +153,7 @@ export function EssentialsManager() {
   const totalCost = items.reduce((total, item) => total + (item.price ?? 0) * item.quantity, 0);
 
   return (
-    <>
+    <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="font-headline text-2xl">المستلزمات الشهرية</CardTitle>
@@ -234,7 +259,7 @@ export function EssentialsManager() {
             </Table>
           </div>
         </CardContent>
-        <CardFooter className="flex-col items-start gap-2">
+        <CardFooter className="flex-col items-start gap-4">
            <div className="flex justify-between w-full">
             <span className="font-semibold text-lg">التكلفة الإجمالية:</span>
             <span className="font-bold text-lg text-primary">{totalCost.toFixed(2)} ر.ع.</span>
@@ -253,12 +278,56 @@ export function EssentialsManager() {
           </Button>
         </CardFooter>
       </Card>
+      {chartData.length > 0 && (
+         <Card>
+          <CardHeader>
+            <CardTitle className="font-headline text-2xl flex items-center gap-2">
+                <BarChart2 />
+                إحصائيات الإنفاق
+            </CardTitle>
+            <CardDescription>
+                رسم بياني يوضح توزيع تكلفة المستلزمات الشهرية.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+              <ChartContainer config={chartConfig} className="w-full h-[250px]">
+                <BarChart accessibilityLayer data={chartData} margin={{ top: 20, right: 20, left: -10, bottom: 5 }}>
+                    <CartesianGrid vertical={false} />
+                    <XAxis 
+                        dataKey="name" 
+                        tickLine={false} 
+                        axisLine={false} 
+                        tickMargin={8} 
+                        tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
+                    />
+                    <YAxis 
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={12}
+                        tickLine={false}
+                        axisLine={false}
+                        tickMargin={8}
+                        tickFormatter={(value) => `${value} ر.ع.`}
+                    />
+                    <Tooltip
+                        cursor={false}
+                        content={<ChartTooltipContent 
+                            formatter={(value) => `${Number(value).toFixed(2)} ر.ع.`}
+                            indicator="dot"
+                        />}
+                        
+                    />
+                    <Bar dataKey="cost" fill="hsl(var(--primary))" radius={4} />
+                </BarChart>
+              </ChartContainer>
+          </CardContent>
+        </Card>
+      )}
       <AiResultsDialog
         isOpen={isDialogVisible}
         onClose={() => setDialogVisible(false)}
         estimatedCost={aiResult?.estimatedCost}
         costReductionPlan={aiResult?.costReductionPlan}
       />
-    </>
+    </div>
   );
 }

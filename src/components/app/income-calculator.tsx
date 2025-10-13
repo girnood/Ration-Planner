@@ -177,6 +177,7 @@ export function IncomeCalculator() {
                       <FormControl>
                         <Input
                           type="number"
+                          step="0.01"
                           placeholder="0.00"
                           className="pl-10"
                           {...field}
@@ -199,7 +200,7 @@ export function IncomeCalculator() {
       <Card>
         <CardHeader>
           <CardTitle>إدارة المدخرات</CardTitle>
-          <CardDescription>أضف مساهماتك في الادخar هنا.</CardDescription>
+          <CardDescription>أضف مساهماتك في الادخار هنا.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-2 gap-8">
@@ -222,6 +223,7 @@ export function IncomeCalculator() {
                           <FormControl>
                             <Input
                               type="number"
+                              step="0.01"
                               placeholder="0.00"
                               className="pl-10"
                               {...field}
