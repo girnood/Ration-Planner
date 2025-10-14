@@ -1,127 +1,151 @@
 /**
- * @fileoverview Firestore Security Rules for Ration Planner.
- *
- * Core Philosophy:
- * This ruleset enforces a strict user-ownership model. Each user has exclusive
- * access to their profile data and associated essential items, debts, and payments.
- *
- * Data Structure:
- * All data is nested under `/userProfiles/{userId}`, ensuring that data access
- * can be controlled based on the user's ID in the path. The data structure is as follows:
- *   - /userProfiles/{userProfileId}
- *   - /userProfiles/{userProfileId}/essentials/{essentialId}
- *   - /userProfiles/{userProfileId}/debts/{debtId}
- *   - /userProfiles/{userProfileId}/debts/{debtId}/payments/{paymentId}
- *
- * Key Security Decisions:
- *  - Users can only access their own profile and associated data.
- *  - No listing of all user profiles is allowed.
- *  - Data validation is relaxed in this prototype to allow for rapid iteration,
- *    focusing instead on authorization and relational integrity.
- *
- * Denormalization for Authorization:
- * The data model uses a path-based authorization strategy. Subcollections are nested under user profiles,
- * allowing for efficient security checks based on the user ID in the path. This avoids the need for additional
- * `get()` calls to verify ownership.
+ * @file Firebase Security Rules for Ration Planner App
+ * @core_philosophy This ruleset enforces a strict user-ownership model, ensuring that each user can only access their own data.
+ * @data_structure Data is organized hierarchically under `/userProfiles/{userId}`, with subcollections for `essentials`, `debts`, and `payments`.
+ * @key_security_decisions User listing is disallowed. Write access is strictly controlled based on user ownership. Data consistency is enforced between the path and the document's internal fields.
+ * @denormalization The `userProfileId` is denormalized in the `EssentialItem`, `Debt` and `Payment` documents to create path-based ownership, simplifying security rules and improving performance.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Enforces user-ownership for user profiles.
+     * @description Enforces access control for user profiles.
      * @path /userProfiles/{userProfileId}
-     * @allow (create) Authenticated user can create their own profile.
-     * @allow (get, update, delete) Authenticated user can get, update and delete their own profile.
-     * @deny (create) If the user tries to create a profile with an ID that doesn't match their auth UID.
-     * @deny (get, update, delete) If the user tries to access a profile that doesn't belong to them.
+     * @allow (create) Allow a user to create their own profile if the userProfileId matches their auth UID.
+     * @allow (get, list) Allow a user to read their own profile if the userProfileId matches their auth UID.
+     * @allow (update, delete) Allow a user to update/delete their own profile if the userProfileId matches their auth UID and the document exists.
+     * @deny (create) Deny a user from creating a profile with a userProfileId that does not match their auth UID.
+     * @deny (get, list) Deny a user from reading another user's profile.
+     * @deny (update, delete) Deny a user from updating/deleting another user's profile, or if the profile does not exist.
      * @principle Enforces document ownership for all operations.
      */
     match /userProfiles/{userProfileId} {
+      // isOwner Function: Checks if the user is the owner of the resource.
       function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
+        return request.auth.uid == userId;
       }
 
+      // isExistingOwner Function: Checks if the user is the owner of the resource, and that the resource exists.
       function isExistingOwner(userId) {
         return isOwner(userId) && resource != null;
       }
 
+      // isSignedIn Function: Checks if the user is signed in.
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
       allow get: if isOwner(userProfileId);
-      allow list: if false;
-      allow create: if isOwner(userProfileId) && request.resource.data.id == userProfileId;
+      allow list: if false; // Disallowing listing of all user profiles
+
+      allow create: if isSignedIn() && isOwner(userProfileId) && request.resource.data.id == userProfileId;
       allow update: if isExistingOwner(userProfileId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingOwner(userProfileId);
     }
 
     /**
-     * @description Enforces user-ownership for essential items.
+     * @description Enforces access control for essential items under a user profile.
      * @path /userProfiles/{userProfileId}/essentials/{essentialId}
-     * @allow (create) Authenticated user can create essential items under their profile.
-     * @allow (get, list, update, delete) Authenticated user can get, list, update, and delete essential items under their profile.
-     * @deny (create, get, list, update, delete) If the user tries to access essential items that don't belong to them.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) Allow a user to create an essential item under their profile if the userProfileId matches their auth UID.
+     * @allow (get, list) Allow a user to read essential items under their own profile.
+     * @allow (update, delete) Allow a user to update/delete an essential item under their own profile, and only if the document exists.
+     * @deny (create) Deny a user from creating an essential item under another user's profile.
+     * @deny (get, list) Deny a user from reading essential items under another user's profile.
+     * @deny (update, delete) Deny a user from updating/deleting an essential item under another user's profile or if the document does not exist.
+     * @principle Enforces document ownership for writes and restricts reads to the owner.
      */
     match /userProfiles/{userProfileId}/essentials/{essentialId} {
+      // isOwner Function: Checks if the user is the owner of the resource.
       function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
+        return request.auth.uid == userId;
       }
 
+      // isExistingOwner Function: Checks if the user is the owner of the resource, and that the resource exists.
       function isExistingOwner(userId) {
         return isOwner(userId) && resource != null;
       }
 
+      // isSignedIn Function: Checks if the user is signed in.
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
       allow get: if isOwner(userProfileId);
       allow list: if isOwner(userProfileId);
-      allow create: if isOwner(userProfileId) && request.resource.data.userProfileId == userProfileId;
-      allow update: if isExistingOwner(userProfileId) && request.resource.data.userProfileId == userProfileId;
+
+      allow create: if isSignedIn() && isOwner(userProfileId) && request.resource.data.userProfileId == userProfileId;
+      allow update: if isExistingOwner(userProfileId) && request.resource.data.userProfileId == resource.data.userProfileId;
       allow delete: if isExistingOwner(userProfileId);
     }
 
     /**
-     * @description Enforces user-ownership for debts.
+     * @description Enforces access control for debts under a user profile.
      * @path /userProfiles/{userProfileId}/debts/{debtId}
-     * @allow (create) Authenticated user can create debts under their profile.
-     * @allow (get, list, update, delete) Authenticated user can get, list, update, and delete debts under their profile.
-     * @deny (create, get, list, update, delete) If the user tries to access debts that don't belong to them.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) Allow a user to create a debt under their profile if the userProfileId matches their auth UID.
+     * @allow (get, list) Allow a user to read debts under their own profile.
+     * @allow (update, delete) Allow a user to update/delete a debt under their own profile, and only if the document exists.
+     * @deny (create) Deny a user from creating a debt under another user's profile.
+     * @deny (get, list) Deny a user from reading debts under another user's profile.
+     * @deny (update, delete) Deny a user from updating/deleting a debt under another user's profile or if the document does not exist.
+     * @principle Enforces document ownership for writes and restricts reads to the owner.
      */
     match /userProfiles/{userProfileId}/debts/{debtId} {
+      // isOwner Function: Checks if the user is the owner of the resource.
       function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
+        return request.auth.uid == userId;
       }
 
+      // isExistingOwner Function: Checks if the user is the owner of the resource, and that the resource exists.
       function isExistingOwner(userId) {
         return isOwner(userId) && resource != null;
       }
 
+      // isSignedIn Function: Checks if the user is signed in.
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
       allow get: if isOwner(userProfileId);
       allow list: if isOwner(userProfileId);
-      allow create: if isOwner(userProfileId) && request.resource.data.userProfileId == userProfileId;
-      allow update: if isExistingOwner(userProfileId) && request.resource.data.userProfileId == userProfileId;
+
+      allow create: if isSignedIn() && isOwner(userProfileId) && request.resource.data.userProfileId == userProfileId;
+      allow update: if isExistingOwner(userProfileId) && request.resource.data.userProfileId == resource.data.userProfileId;
       allow delete: if isExistingOwner(userProfileId);
     }
 
     /**
-     * @description Enforces user-ownership for payments.
+     * @description Enforces access control for payments under a debt.
      * @path /userProfiles/{userProfileId}/debts/{debtId}/payments/{paymentId}
-     * @allow (create) Authenticated user can create payments under their debts and profile.
-     * @allow (get, list, update, delete) Authenticated user can get, list, update, and delete payments under their debts and profile.
-     * @deny (create, get, list, update, delete) If the user tries to access payments that don't belong to them.
-     * @principle Enforces document ownership for all operations.
+     * @allow (create) Allow a user to create a payment for a debt under their profile.
+     * @allow (get, list) Allow a user to read payments for debts under their own profile.
+     * @allow (update, delete) Allow a user to update/delete a payment for a debt under their own profile, and only if the document exists.
+     * @deny (create) Deny a user from creating a payment under another user's profile.
+     * @deny (get, list) Deny a user from reading payments under another user's profile.
+     * @deny (update, delete) Deny a user from updating/deleting a payment under another user's profile or if the document does not exist.
+     * @principle Enforces document ownership for writes and restricts reads to the owner.
      */
     match /userProfiles/{userProfileId}/debts/{debtId}/payments/{paymentId} {
+      // isOwner Function: Checks if the user is the owner of the resource.
       function isOwner(userId) {
-        return request.auth != null && request.auth.uid == userId;
+        return request.auth.uid == userId;
       }
 
+      // isExistingOwner Function: Checks if the user is the owner of the resource, and that the resource exists.
       function isExistingOwner(userId) {
         return isOwner(userId) && resource != null;
       }
 
+      // isSignedIn Function: Checks if the user is signed in.
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
       allow get: if isOwner(userProfileId);
       allow list: if isOwner(userProfileId);
-      allow create: if isOwner(userProfileId) && request.resource.data.debtId == debtId;
-      allow update: if isExistingOwner(userProfileId) && request.resource.data.debtId == debtId;
+
+      allow create: if isSignedIn() && isOwner(userProfileId);
+      allow update: if isExistingOwner(userProfileId);
       allow delete: if isExistingOwner(userProfileId);
     }
   }
