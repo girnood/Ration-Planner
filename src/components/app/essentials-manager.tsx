@@ -33,6 +33,9 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { EssentialItem } from '@/lib/types';
 import { Plus, Trash, NotebookText } from 'lucide-react';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
+import { addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'يجب أن يتكون اسم العنصر من حرفين على الأقل.' }),
@@ -41,28 +44,16 @@ const formSchema = z.object({
 });
 
 export function EssentialsManager() {
-  const [items, setItems] = useState<EssentialItem[]>([]);
   const { toast } = useToast();
-  const [isClient, setIsClient] = useState(false);
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
 
-  useEffect(() => {
-    setIsClient(true);
-    const storedItems = localStorage.getItem('essentialItems');
-    if (storedItems) {
-      try {
-        setItems(JSON.parse(storedItems));
-      } catch (error) {
-        console.error("Failed to parse essential items from localStorage", error);
-        setItems([]);
-      }
-    }
-  }, []);
+  const essentialsCollection = useMemoFirebase(() => {
+    if (!user) return null;
+    return collection(firestore, 'userProfiles', user.uid, 'essentials');
+  }, [firestore, user]);
 
-  useEffect(() => {
-    if (isClient) {
-      localStorage.setItem('essentialItems', JSON.stringify(items));
-    }
-  }, [items, isClient]);
+  const { data: items = [], isLoading } = useCollection<EssentialItem>(essentialsCollection);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -74,13 +65,16 @@ export function EssentialsManager() {
   });
 
   function onSubmit(values: z.infer<typeof formSchema>) {
-    const newItem: EssentialItem = {
-      id: crypto.randomUUID(),
+    if (!user || !essentialsCollection) return;
+
+    const newItem = {
+      userId: user.uid,
       name: values.name,
       quantity: values.quantity,
-      price: values.price,
+      price: values.price ?? 0,
     };
-    setItems((prev) => [...prev, newItem]);
+    addDocumentNonBlocking(essentialsCollection, newItem);
+    
     form.reset();
     toast({
       title: 'تمت إضافة العنصر',
@@ -89,8 +83,11 @@ export function EssentialsManager() {
   }
 
   function deleteItem(id: string) {
+    if(!user) return;
+    const itemRef = doc(firestore, 'userProfiles', user.uid, 'essentials', id);
     const itemName = items.find((item) => item.id === id)?.name;
-    setItems((prev) => prev.filter((item) => item.id !== id));
+    deleteDocumentNonBlocking(itemRef);
+
     if (itemName) {
       toast({
         title: 'تمت إزالة العنصر',
@@ -100,11 +97,9 @@ export function EssentialsManager() {
     }
   }
 
-  if (!isClient) {
-    return null;
-  }
-
   const totalCost = items.reduce((total, item) => total + (item.price ?? 0) * item.quantity, 0);
+
+  const showLoading = isUserLoading || isLoading;
 
   return (
     <div className="space-y-6">
@@ -157,7 +152,7 @@ export function EssentialsManager() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full sm:w-auto bg-primary hover:bg-primary/90">
+              <Button type="submit" className="w-full sm:w-auto bg-primary hover:bg-primary/90" disabled={!user}>
                 <Plus />
                 إضافة عنصر
               </Button>
@@ -176,7 +171,13 @@ export function EssentialsManager() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {items.length > 0 ? (
+                {showLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center">
+                      جارٍ تحميل البيانات...
+                    </TableCell>
+                  </TableRow>
+                ) : items.length > 0 ? (
                   items.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">{item.name}</TableCell>
