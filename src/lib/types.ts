@@ -24,3 +24,10 @@ export type SavingsContribution = {
   amount: number;
   date: Date;
 };
+
+// Type for AI-extracted items from a receipt
+export type ExtractedItem = {
+  name: string;
+  quantity: number;
+  price?: number;
+};

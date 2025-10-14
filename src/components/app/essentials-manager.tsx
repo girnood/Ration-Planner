@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -32,10 +32,21 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { EssentialItem } from '@/lib/types';
-import { Plus, Trash, NotebookText } from 'lucide-react';
+import { Plus, Trash, NotebookText, Sparkles, Loader2 } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogTrigger,
+  DialogClose
+} from '@/components/ui/dialog';
+import { analyzeReceipt } from '@/ai/flows/analyze-receipt-flow';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'يجب أن يتكون اسم العنصر من حرفين على الأقل.' }),
@@ -47,6 +58,10 @@ export function EssentialsManager() {
   const { toast } = useToast();
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const [isAiDialogOpen, setAiDialogOpen] = useState(false);
+  const [isAiProcessing, setAiProcessing] = useState(false);
+  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const essentialsCollection = useMemoFirebase(() => {
     if (!user) return null;
@@ -54,7 +69,7 @@ export function EssentialsManager() {
   }, [firestore, user]);
 
   const { data: items, isLoading } = useCollection<EssentialItem>(essentialsCollection);
-  
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -74,7 +89,7 @@ export function EssentialsManager() {
       price: values.price ?? 0,
     };
     addDocumentNonBlocking(essentialsCollection, newItem);
-    
+
     form.reset();
     toast({
       title: 'تمت إضافة العنصر',
@@ -83,7 +98,7 @@ export function EssentialsManager() {
   }
 
   function deleteItem(id: string) {
-    if(!user || !items) return;
+    if (!user || !items) return;
     const itemRef = doc(firestore, 'userProfiles', user.uid, 'essentials', id);
     const itemName = items.find((item) => item.id === id)?.name;
     deleteDocumentNonBlocking(itemRef);
@@ -97,6 +112,58 @@ export function EssentialsManager() {
     }
   }
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setReceiptFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewUrl(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleAiAnalyze = async () => {
+    if (!receiptFile || !user || !essentialsCollection) return;
+    setAiProcessing(true);
+    try {
+      const reader = new FileReader();
+      reader.readAsDataURL(receiptFile);
+      reader.onload = async (e) => {
+        const photoDataUri = e.target?.result as string;
+        const { items } = await analyzeReceipt({ photoDataUri });
+        
+        items.forEach(item => {
+           const newItem = {
+            userId: user.uid,
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price ?? 0,
+          };
+          addDocumentNonBlocking(essentialsCollection, newItem);
+        });
+
+        toast({
+          title: 'اكتمل التحليل',
+          description: `تمت إضافة ${items.length} عناصر من فاتورتك.`,
+        });
+        setAiDialogOpen(false);
+        setReceiptFile(null);
+        setPreviewUrl(null);
+      };
+    } catch (error) {
+      console.error("AI analysis failed", error);
+      toast({
+        title: 'فشل التحليل',
+        description: 'حدث خطأ أثناء تحليل الفاتورة. يرجى المحاولة مرة أخرى.',
+        variant: 'destructive',
+      });
+    } finally {
+      setAiProcessing(false);
+    }
+  };
+
   const totalCost = (items ?? []).reduce((total, item) => total + (item.price ?? 0) * item.quantity, 0);
 
   const showLoading = isUserLoading || isLoading;
@@ -105,10 +172,53 @@ export function EssentialsManager() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="font-headline text-2xl">المستلزمات الشهرية</CardTitle>
-          <CardDescription>
-            أضف عناصر إلى قائمة التسوق الشهرية.
-          </CardDescription>
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle className="font-headline text-2xl">المستلزمات الشهرية</CardTitle>
+              <CardDescription>
+                أضف عناصر إلى قائمة التسوق الشهرية يدويًا أو باستخدام الذكاء الاصطناعي.
+              </CardDescription>
+            </div>
+            <Dialog open={isAiDialogOpen} onOpenChange={(isOpen) => {
+              setAiDialogOpen(isOpen);
+              if (!isOpen) {
+                setReceiptFile(null);
+                setPreviewUrl(null);
+              }
+            }}>
+              <DialogTrigger asChild>
+                <Button variant="outline">
+                  <Sparkles className="text-primary" />
+                  تحليل الفاتورة
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>تحليل فاتورة باستخدام الذكاء الاصطناعي</DialogTitle>
+                  <DialogDescription>
+                    قم بتحميل صورة من فاتورتك، وسيقوم الذكاء الاصطناعي باستخلاص العناصر لك.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <Input type="file" accept="image/*" onChange={handleFileChange} disabled={isAiProcessing} />
+                  {previewUrl && (
+                    <div className="mt-4 rounded-md border p-2">
+                      <img src={previewUrl} alt="معاينة الفاتورة" className="w-full h-auto rounded-md" />
+                    </div>
+                  )}
+                </div>
+                <DialogFooter>
+                   <DialogClose asChild>
+                      <Button type="button" variant="secondary" disabled={isAiProcessing}>إلغاء</Button>
+                    </DialogClose>
+                  <Button onClick={handleAiAnalyze} disabled={!receiptFile || isAiProcessing}>
+                    {isAiProcessing ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                    {isAiProcessing ? 'جاري التحليل...' : 'تحليل'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </CardHeader>
         <CardContent>
           <Form {...form}>
