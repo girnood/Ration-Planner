@@ -82,7 +82,7 @@ function EssentialsStats({ items }: { items: EssentialItem[] }) {
 
   }, [items]);
 
-  if (monthlyData.length === 0) {
+  if (!monthlyData || monthlyData.length === 0) {
     return null; // Don't render the card if there's no data
   }
 
@@ -462,7 +462,7 @@ export function EssentialsManager() {
         </CardFooter>
       </Card>
       
-      {items && <EssentialsStats items={items} />}
+      {items && items.length > 0 && <EssentialsStats items={items} />}
 
       {/* Edit Item Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setEditDialogOpen}>
@@ -527,5 +527,3 @@ export function EssentialsManager() {
     </div>
   );
 }
-
-    
