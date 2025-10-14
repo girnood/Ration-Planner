@@ -4,6 +4,7 @@ export type EssentialItem = {
   name: string;
   quantity: number;
   price?: number;
+  createdAt: string; // ISO date string
 };
 
 export type Debt = {

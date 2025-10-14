@@ -32,10 +32,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { EssentialItem } from '@/lib/types';
-import { Plus, Trash, NotebookText, Sparkles, Loader2 } from 'lucide-react';
+import { Plus, Trash, NotebookText, Sparkles, Loader2, Pencil } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
-import { addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import {
   Dialog,
   DialogContent,
@@ -62,6 +62,8 @@ export function EssentialsManager() {
   const [isAiProcessing, setAiProcessing] = useState(false);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [isEditDialogOpen, setEditDialogOpen] = useState(false);
+  const [currentItem, setCurrentItem] = useState<EssentialItem | null>(null);
 
   const essentialsCollection = useMemoFirebase(() => {
     if (!user) return null;
@@ -79,6 +81,32 @@ export function EssentialsManager() {
     },
   });
 
+  const editForm = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+  });
+
+  function openEditDialog(item: EssentialItem) {
+    setCurrentItem(item);
+    editForm.reset({
+      name: item.name,
+      quantity: item.quantity,
+      price: item.price,
+    });
+    setEditDialogOpen(true);
+  }
+
+  function onEditSubmit(values: z.infer<typeof formSchema>) {
+    if (!user || !currentItem) return;
+    const itemRef = doc(firestore, 'userProfiles', user.uid, 'essentials', currentItem.id);
+    updateDocumentNonBlocking(itemRef, values);
+    toast({
+      title: 'تم تحديث العنصر',
+      description: `تم تحديث "${values.name}" بنجاح.`,
+    });
+    setEditDialogOpen(false);
+    setCurrentItem(null);
+  }
+
   function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user || !essentialsCollection) return;
 
@@ -87,6 +115,7 @@ export function EssentialsManager() {
       name: values.name,
       quantity: values.quantity,
       price: values.price ?? 0,
+      createdAt: new Date().toISOString(),
     };
     addDocumentNonBlocking(essentialsCollection, newItem);
 
@@ -148,6 +177,7 @@ export function EssentialsManager() {
           name: item.name,
           quantity: item.quantity,
           price: item.price ?? 0,
+          createdAt: new Date().toISOString(),
         };
         addDocumentNonBlocking(essentialsCollection, newItem);
       });
@@ -285,13 +315,14 @@ export function EssentialsManager() {
                   <TableHead className="w-[120px] text-center">السعر الفردي</TableHead>
                   <TableHead className="w-[100px] text-center">الكمية</TableHead>
                   <TableHead className="w-[120px] text-center">السعر الإجمالي</TableHead>
+                  <TableHead className="w-[150px] text-center">تاريخ الإضافة</TableHead>
                   <TableHead className="w-[100px] text-right">الإجراءات</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {showLoading ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-24 text-center">
                       جارٍ تحميل البيانات...
                     </TableCell>
                   </TableRow>
@@ -306,7 +337,19 @@ export function EssentialsManager() {
                       <TableCell className="text-center">
                         {item.price !== undefined ? `${(item.price * item.quantity).toFixed(2)} ر.ع.` : '-'}
                       </TableCell>
+                       <TableCell className="text-center">
+                        {new Date(item.createdAt).toLocaleDateString('ar-OM')}
+                      </TableCell>
                       <TableCell className="text-right">
+                         <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditDialog(item)}
+                          aria-label={`تعديل ${item.name}`}
+                          className="mr-2"
+                        >
+                          <Pencil className="text-blue-500" />
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -320,7 +363,7 @@ export function EssentialsManager() {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                    <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <NotebookText className="h-8 w-8" />
                         <span>لا توجد عناصر حتى الآن. أضف واحدة أعلاه للبدء.</span>
@@ -339,6 +382,67 @@ export function EssentialsManager() {
           </div>
         </CardFooter>
       </Card>
+      
+      {/* Edit Item Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>تعديل العنصر</DialogTitle>
+            <DialogDescription>
+              قم بتحديث تفاصيل العنصر أدناه.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
+              <FormField
+                control={editForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>اسم العنصر</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="price"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>السعر (اختياري)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="quantity"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>الكمية</FormLabel>
+                    <FormControl>
+                      <Input type="number" min="1" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button type="button" variant="secondary">إلغاء</Button>
+                </DialogClose>
+                <Button type="submit">حفظ التغييرات</Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
