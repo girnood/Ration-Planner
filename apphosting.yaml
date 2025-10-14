@@ -1,24 +1,19 @@
 # Settings to manage and configure a Firebase App Hosting backend.
-# https://firebase.google.com/docs/app-hosting/configure
-
-runConfig:
-  # Increase this value if you'd like to automatically spin up
-  # more instances in response to increased traffic.
-  maxInstances: 1
-# This is a sample apphosting.yaml file.
-# You can use this file to configure your App Hosting backend.
-# For more information, see the Firebase App Hosting documentation:
 # https://firebase.google.com/docs/app-hosting/configure-backend
+
+# Build command configuration
 build:
-  # You can specify the command to run to build your app here.
-  # If you don't specify this, App Hosting will try to build your app
-  # automatically.
+  # The command to run to build your app.
+  # App Hosting will try to build automatically if not specified.
   run: npm run build
+
+# Run command configuration
 run:
-  # You can specify the command to run to start your app here.
-  # If you don't specify this, App Hosting will try to start your app
-  # automatically.
+  # The command to run to start your app.
+  # App Hosting will try to start automatically if not specified.
   run: npm run start
+
+# Environment variables
 env:
   - variable: GENKIT_ENV
     value: production
@@ -42,6 +37,11 @@ env:
       - RUNTIME
   - variable: FIREBASE_PROJECT_ID
     value: ${PROJECT_ID}
-    availability-
+    availability:
       - BUILD
       - RUNTIME
+
+# Runtime instance configuration
+runConfig:
+  # Maximum number of server instances to spin up.
+  maxInstances: 1

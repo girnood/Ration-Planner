@@ -6,6 +6,7 @@ import { Toaster } from '@/components/ui/toaster';
 export const metadata: Metadata = {
   title: 'مخطط الميزانية',
   description: 'مساعدك الشخصي لإدارة الأساسيات الشهرية والديون والميزانية.',
+  manifest: "/manifest.json",
 };
 
 export default function RootLayout({
