@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -47,12 +47,91 @@ import {
   DialogClose
 } from '@/components/ui/dialog';
 import { analyzeReceipt } from '@/ai/flows/analyze-receipt-flow';
+import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip as ChartTooltip, ResponsiveContainer } from 'recharts';
+import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
+import { format } from 'date-fns';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'يجب أن يتكون اسم العنصر من حرفين على الأقل.' }),
   quantity: z.coerce.number().min(1, { message: 'يجب أن تكون الكمية 1 على الأقل.' }),
   price: z.coerce.number().min(0, { message: 'يجب أن يكون السعر رقمًا موجبًا.' }).optional(),
 });
+
+function EssentialsStats({ items }: { items: EssentialItem[] }) {
+  const monthlyData = useMemo(() => {
+    if (!items || items.length === 0) {
+      return [];
+    }
+
+    const monthlyTotals = items.reduce((acc, item) => {
+      const month = format(new Date(item.createdAt), 'yyyy-MM');
+      const cost = (item.price || 0) * item.quantity;
+      if (!acc[month]) {
+        acc[month] = 0;
+      }
+      acc[month] += cost;
+      return acc;
+    }, {} as Record<string, number>);
+    
+    return Object.entries(monthlyTotals)
+      .map(([month, total]) => ({
+        month: format(new Date(month), 'MMM'),
+        total,
+      }))
+      .sort((a, b) => new Date(a.month).getMonth() - new Date(b.month).getMonth());
+
+  }, [items]);
+
+  if (monthlyData.length === 0) {
+    return null; // Don't render the card if there's no data
+  }
+
+  const chartConfig = {
+    total: {
+      label: "الإجمالي",
+      color: "hsl(var(--primary))",
+    },
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>الإحصائيات الشهرية</CardTitle>
+        <CardDescription>نظرة عامة على إنفاقك على المستلزمات الأساسية شهريًا.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={monthlyData} margin={{ top: 20, right: 20, left: -10, bottom: 5 }}>
+              <CartesianGrid vertical={false} />
+              <XAxis
+                dataKey="month"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+              />
+              <YAxis
+                tickFormatter={(value) => `${value} ر.ع`}
+                tickLine={false}
+                axisLine={false}
+                width={80}
+              />
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent
+                  formatter={(value) => `${(value as number).toFixed(2)} ر.ع`}
+                  labelClassName="font-bold"
+                />}
+              />
+              <Bar dataKey="total" fill="var(--color-total)" radius={4} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartContainer>
+      </CardContent>
+    </Card>
+  );
+}
+
 
 export function EssentialsManager() {
   const { toast } = useToast();
@@ -383,6 +462,8 @@ export function EssentialsManager() {
         </CardFooter>
       </Card>
       
+      {items && <EssentialsStats items={items} />}
+
       {/* Edit Item Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent>
@@ -446,3 +527,5 @@ export function EssentialsManager() {
     </div>
   );
 }
+
+    
