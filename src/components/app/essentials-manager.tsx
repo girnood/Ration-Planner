@@ -53,7 +53,7 @@ export function EssentialsManager() {
     return collection(firestore, 'userProfiles', user.uid, 'essentials');
   }, [firestore, user]);
 
-  const { data: items = [], isLoading } = useCollection<EssentialItem>(essentialsCollection);
+  const { data: items, isLoading } = useCollection<EssentialItem>(essentialsCollection);
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -83,7 +83,7 @@ export function EssentialsManager() {
   }
 
   function deleteItem(id: string) {
-    if(!user) return;
+    if(!user || !items) return;
     const itemRef = doc(firestore, 'userProfiles', user.uid, 'essentials', id);
     const itemName = items.find((item) => item.id === id)?.name;
     deleteDocumentNonBlocking(itemRef);
@@ -97,7 +97,7 @@ export function EssentialsManager() {
     }
   }
 
-  const totalCost = items.reduce((total, item) => total + (item.price ?? 0) * item.quantity, 0);
+  const totalCost = (items ?? []).reduce((total, item) => total + (item.price ?? 0) * item.quantity, 0);
 
   const showLoading = isUserLoading || isLoading;
 
@@ -177,7 +177,7 @@ export function EssentialsManager() {
                       جارٍ تحميل البيانات...
                     </TableCell>
                   </TableRow>
-                ) : items.length > 0 ? (
+                ) : items && items.length > 0 ? (
                   items.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">{item.name}</TableCell>
