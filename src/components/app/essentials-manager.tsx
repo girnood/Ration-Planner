@@ -64,12 +64,15 @@ function EssentialsStats({ items }: { items: EssentialItem[] }) {
     }
 
     const monthlyTotals = items.reduce((acc, item) => {
-      const month = format(new Date(item.createdAt), 'yyyy-MM');
-      const cost = (item.price || 0) * item.quantity;
-      if (!acc[month]) {
-        acc[month] = 0;
+      // Ensure createdAt exists before processing
+      if (item.createdAt) {
+        const month = format(new Date(item.createdAt), 'yyyy-MM');
+        const cost = (item.price || 0) * item.quantity;
+        if (!acc[month]) {
+          acc[month] = 0;
+        }
+        acc[month] += cost;
       }
-      acc[month] += cost;
       return acc;
     }, {} as Record<string, number>);
     
@@ -417,7 +420,7 @@ export function EssentialsManager() {
                         {item.price !== undefined ? `${(item.price * item.quantity).toFixed(2)} ر.ع.` : '-'}
                       </TableCell>
                        <TableCell className="text-center">
-                        {new Date(item.createdAt).toLocaleDateString('ar-OM')}
+                        {item.createdAt ? new Date(item.createdAt).toLocaleDateString('ar-OM') : '-'}
                       </TableCell>
                       <TableCell className="text-right">
                          <Button
