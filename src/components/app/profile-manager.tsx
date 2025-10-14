@@ -24,59 +24,71 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { Save } from 'lucide-react';
+import { Save, Loader2 } from 'lucide-react';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+
 
 const profileSchema = z.object({
   budget: z.coerce.number().positive({ message: 'يجب أن تكون الميزانية رقمًا موجبًا.' }),
+  name: z.string().optional(),
 });
 
 export function ProfileManager() {
-  const [budget, setBudget] = useState<number>(1000);
   const { toast } = useToast();
   const avatarImage = PlaceHolderImages.find((img) => img.id === 'profile-avatar');
-  const [isClient, setIsClient] = useState(false);
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
 
-  useEffect(() => {
-    setIsClient(true);
-    const storedBudget = localStorage.getItem('monthlyBudget');
-    if (storedBudget) {
-      try {
-        const parsedBudget = parseFloat(storedBudget);
-        if(!isNaN(parsedBudget)) {
-          setBudget(parsedBudget);
-          form.reset({ budget: parsedBudget });
-        }
-      } catch (error) {
-        console.error("Failed to parse budget from localStorage", error);
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'userProfiles', user.uid);
+  }, [firestore, user]);
 
-  useEffect(() => {
-    if (isClient) {
-      localStorage.setItem('monthlyBudget', budget.toString());
-    }
-  }, [budget, isClient]);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc<{budget: number, name?: string}>(userProfileRef);
 
   const form = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
-      budget: budget,
+      budget: 1000,
+      name: '',
     },
   });
 
+  useEffect(() => {
+    if (userProfile) {
+      form.reset({
+        budget: userProfile.budget || 1000,
+        name: userProfile.name || user?.displayName || '',
+      });
+    } else if (user) {
+       form.reset({
+        budget: 1000,
+        name: user.displayName || '',
+      });
+    }
+  }, [userProfile, user, form]);
+
   function onSubmit(values: z.infer<typeof profileSchema>) {
-    setBudget(values.budget);
+    if (!userProfileRef || !user) return;
+    
+    const profileData = {
+      budget: values.budget,
+      name: values.name,
+      email: user.email, // Assuming email is available from user object
+      userId: user.uid,
+    };
+
+    setDocumentNonBlocking(userProfileRef, profileData, { merge: true });
+
     toast({
-      title: 'تم تحديث الميزانية',
-      description: `تم تحديد ميزانيتك الشهرية بمبلغ ${values.budget.toFixed(2)} ر.ع.`,
+      title: 'تم تحديث الملف الشخصي',
+      description: `تم حفظ إعداداتك بنجاح.`,
     });
   }
 
-  if (!isClient) {
-    return null;
-  }
+  const showLoading = isUserLoading || isProfileLoading;
 
   return (
     <div className="space-y-6">
@@ -89,18 +101,37 @@ export function ProfileManager() {
         <CardHeader className="flex flex-row items-center gap-4">
           <Avatar className="h-16 w-16">
             {avatarImage && <AvatarImage src={avatarImage.imageUrl} alt="User Avatar" data-ai-hint={avatarImage.imageHint} />}
-            <AvatarFallback>U</AvatarFallback>
+            <AvatarFallback>{userProfile?.name?.charAt(0) || user?.displayName?.charAt(0) || 'U'}</AvatarFallback>
           </Avatar>
           <div>
-            <CardTitle className="font-headline text-xl">أهلاً بك!</CardTitle>
+            <CardTitle className="font-headline text-xl">
+              {showLoading ? 'جار التحميل...' : `أهلاً بك، ${userProfile?.name || 'مستخدم'}!`}
+            </CardTitle>
             <CardDescription>
-              حدد هدف الإنفاق الشهري أدناه.
+              حدد هدف الإنفاق الشهري وأدر معلوماتك.
             </CardDescription>
           </div>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-w-sm">
+               <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>الاسم</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="اسمك"
+                        {...field}
+                        disabled={showLoading}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="budget"
@@ -115,16 +146,17 @@ export function ProfileManager() {
                           placeholder="1000.00"
                           className="pl-10"
                           {...field}
+                          disabled={showLoading}
                         />
-                      </FormControl>
+FormControl>
                     </div>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <Button type="submit">
-                <Save />
-                حفظ الميزانية
+              <Button type="submit" disabled={showLoading}>
+                 {showLoading ? <Loader2 className="animate-spin" /> : <Save />}
+                حفظ التغييرات
               </Button>
             </form>
           </Form>

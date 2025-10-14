@@ -23,15 +23,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { Goal, Save, Plus, Trash } from 'lucide-react';
+import { Goal, Save, Plus, Trash, Loader2 } from 'lucide-react';
 import type { SavingsContribution } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
+import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
+import { setDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
-const savingsGoalSchema = z.object({
-  amount: z.coerce
-    .number()
-    .positive({ message: 'يجب أن يكون مبلغ الادخار رقمًا موجبًا.' }),
-});
 
 const addContributionSchema = z.object({
   contribution: z.coerce
@@ -39,61 +37,39 @@ const addContributionSchema = z.object({
     .positive({ message: 'يجب أن يكون مبلغ المساهمة رقمًا موجبًا.' }),
 });
 
+const savingsGoalSchema = z.object({
+  amount: z.coerce
+    .number()
+    .positive({ message: 'يجب أن يكون مبلغ الادخار رقمًا موجبًا.' }),
+});
+
+
 export function IncomeCalculator() {
-  const [savingsGoal, setSavingsGoal] = useState<number>(0);
-  const [contributions, setContributions] = useState<SavingsContribution[]>([]);
   const { toast } = useToast();
-  const [isClient, setIsClient] = useState(false);
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
 
-  useEffect(() => {
-    setIsClient(true);
-    const storedGoal = localStorage.getItem('savingsGoal');
-    if (storedGoal) {
-      try {
-        const parsedGoal = parseFloat(storedGoal);
-        if (!isNaN(parsedGoal)) {
-          setSavingsGoal(parsedGoal);
-          goalForm.reset({ amount: parsedGoal });
-        }
-      } catch (error) {
-        console.error("Failed to parse savings goal from localStorage", error);
-      }
-    }
+  const userProfileRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'userProfiles', user.uid);
+  }, [firestore, user]);
 
-    const storedContributions = localStorage.getItem('savingsContributions');
-    if (storedContributions) {
-       try {
-        const parsedContributions = JSON.parse(storedContributions, (key, value) => {
-          if (key === 'date' && typeof value === 'string') {
-            return new Date(value);
-          }
-          return value;
-        });
-        setContributions(parsedContributions);
-      } catch (error) {
-        console.error("Failed to parse contributions from localStorage", error);
-        setContributions([]);
-      }
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const { data: userProfile, isLoading: isProfileLoading } = useDoc<{savingsGoal?: number}>(userProfileRef);
 
-  useEffect(() => {
-    if (isClient) {
-      localStorage.setItem('savingsGoal', savingsGoal.toString());
-    }
-  }, [savingsGoal, isClient]);
+  const contributionsCollection = useMemoFirebase(() => {
+    if (!user) return null;
+    // For simplicity, contributions are stored in a subcollection of userProfile.
+    // This is not the most ideal structure but works for this case. A better approach would be
+    // to store them under a separate top-level collection.
+    return collection(firestore, 'userProfiles', user.uid, 'savingsContributions');
+  }, [firestore, user]);
 
-  useEffect(() => {
-    if (isClient) {
-      localStorage.setItem('savingsContributions', JSON.stringify(contributions));
-    }
-  }, [contributions, isClient]);
+  const { data: contributions, isLoading: areContributionsLoading } = useCollection<SavingsContribution>(contributionsCollection);
 
   const goalForm = useForm<z.infer<typeof savingsGoalSchema>>({
     resolver: zodResolver(savingsGoalSchema),
     defaultValues: {
-      amount: savingsGoal,
+      amount: 0,
     },
   });
 
@@ -103,13 +79,20 @@ export function IncomeCalculator() {
       contribution: 0,
     },
   });
+  
+  useEffect(() => {
+    if (userProfile?.savingsGoal) {
+      goalForm.reset({ amount: userProfile.savingsGoal });
+    }
+  }, [userProfile, goalForm]);
+
 
   function onGoalSubmit(values: z.infer<typeof savingsGoalSchema>) {
-    setSavingsGoal(values.amount);
-    goalForm.reset({ amount: values.amount });
+    if (!userProfileRef) return;
+    setDocumentNonBlocking(userProfileRef, { savingsGoal: values.amount }, { merge: true });
     toast({
       title: 'تم تحديث هدف الادخار',
-      description: `تم تحديد هدف الادخar السنوي بمبلغ ${values.amount.toFixed(
+      description: `تم تحديد هدف الادخار السنوي بمبلغ ${values.amount.toFixed(
         2
       )} ر.ع.`,
     });
@@ -118,12 +101,13 @@ export function IncomeCalculator() {
   function onContributionSubmit(
     values: z.infer<typeof addContributionSchema>
   ) {
-    const newContribution: SavingsContribution = {
-      id: crypto.randomUUID(),
+    if (!user || !contributionsCollection) return;
+    const newContribution = {
+      userId: user.uid,
       amount: values.contribution,
-      date: new Date(),
+      date: new Date().toISOString(),
     };
-    setContributions((prev) => [...prev, newContribution]);
+    addDocumentNonBlocking(contributionsCollection, newContribution);
     contributionForm.reset({ contribution: 0 });
     toast({
       title: 'تمت إضافة المساهمة',
@@ -132,8 +116,10 @@ export function IncomeCalculator() {
   }
 
   function deleteContribution(id: string) {
-    const contributionAmount = contributions.find(c => c.id === id)?.amount;
-    setContributions((prev) => prev.filter((c) => c.id !== id));
+    if (!user) return;
+    const contributionRef = doc(firestore, 'userProfiles', user.uid, 'savingsContributions', id);
+    const contributionAmount = contributions?.find(c => c.id === id)?.amount;
+    deleteDocumentNonBlocking(contributionRef);
     if (contributionAmount) {
       toast({
         title: 'تم حذف المساهمة',
@@ -143,14 +129,12 @@ export function IncomeCalculator() {
     }
   }
 
-  if (!isClient) {
-    return null;
-  }
-
-  const totalSavings = contributions.reduce(
+  const totalSavings = contributions?.reduce(
     (sum, item) => sum + item.amount,
     0
-  );
+  ) ?? 0;
+  
+  const showLoading = isUserLoading || isProfileLoading || areContributionsLoading;
 
   return (
     <div className="space-y-6">
@@ -182,7 +166,7 @@ export function IncomeCalculator() {
                 name="amount"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>مبلغ الادخar السنوي</FormLabel>
+                    <FormLabel>مبلغ الادخار السنوي</FormLabel>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground">
                         ر.ع
@@ -194,6 +178,7 @@ export function IncomeCalculator() {
                           placeholder="0.00"
                           className="pl-10"
                           {...field}
+                          disabled={showLoading}
                         />
                       </FormControl>
                     </div>
@@ -201,8 +186,8 @@ export function IncomeCalculator() {
                   </FormItem>
                 )}
               />
-              <Button type="submit">
-                <Save />
+              <Button type="submit" disabled={showLoading}>
+                 {showLoading ? <Loader2 className="animate-spin" /> : <Save />}
                 حفظ الهدف
               </Button>
             </form>
@@ -213,7 +198,7 @@ export function IncomeCalculator() {
       <Card>
         <CardHeader>
           <CardTitle>إدارة المدخرات</CardTitle>
-          <CardDescription>أضف مساهماتك في الادخار هنا.</CardDescription>
+          <CardDescription>أضف مساهماتك في الادخar هنا.</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid md:grid-cols-2 gap-8">
@@ -240,6 +225,7 @@ export function IncomeCalculator() {
                               placeholder="0.00"
                               className="pl-10"
                               {...field}
+                              disabled={showLoading}
                             />
                           </FormControl>
                         </div>
@@ -247,8 +233,8 @@ export function IncomeCalculator() {
                       </FormItem>
                     )}
                   />
-                  <Button type="submit">
-                    <Plus />
+                  <Button type="submit" disabled={showLoading}>
+                    {showLoading ? <Loader2 className="animate-spin" /> : <Plus />}
                     إضافة مساهمة
                   </Button>
                 </form>
@@ -256,8 +242,13 @@ export function IncomeCalculator() {
             </div>
             <div>
               <h4 className="font-semibold mb-2">سجل المساهمات</h4>
+               {showLoading ? (
+                <div className="flex justify-center items-center h-24">
+                  <Loader2 className="animate-spin" />
+                </div>
+              ) : (
               <div className="space-y-2 max-h-48 overflow-y-auto rounded-md border p-2 bg-muted/50">
-                {contributions.length > 0 ? (
+                {contributions && contributions.length > 0 ? (
                   contributions.map((item) => (
                     <div
                       key={item.id}
@@ -280,6 +271,7 @@ export function IncomeCalculator() {
                   </p>
                 )}
               </div>
+              )}
             </div>
           </div>
         </CardContent>
@@ -291,10 +283,10 @@ export function IncomeCalculator() {
               {totalSavings.toFixed(2)} ر.ع.
             </span>
           </div>
-          {savingsGoal > 0 && (
+          {userProfile?.savingsGoal && userProfile.savingsGoal > 0 && (
              <div className="flex justify-between w-full text-sm">
                 <span className="text-muted-foreground">الهدف السنوي:</span>
-                <span className="text-muted-foreground">{savingsGoal.toFixed(2)} ر.ع.</span>
+                <span className="text-muted-foreground">{userProfile.savingsGoal.toFixed(2)} ر.ع.</span>
             </div>
           )}
         </CardFooter>

@@ -11,18 +11,21 @@ export type Debt = {
   userId: string;
   creditor: string;
   initialAmount: number;
-  payments: {
-    id:string;
-    amount: number;
-    date: Date;
-  }[];
+  payments: Payment[];
+};
+
+export type Payment = {
+  debtId: string;
+  userId: string;
+  amount: number;
+  date: string; // Storing as ISO string
 };
 
 export type SavingsContribution = {
   id: string;
   userId: string;
   amount: number;
-  date: Date;
+  date: string; // Storing as ISO string
 };
 
 // Type for AI-extracted items from a receipt

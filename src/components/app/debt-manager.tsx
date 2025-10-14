@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -33,10 +33,13 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { Debt } from '@/lib/types';
-import { Plus, Landmark, HandCoins } from 'lucide-react';
+import { Debt, Payment } from '@/lib/types';
+import { Plus, Landmark, HandCoins, Loader2 } from 'lucide-react';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
+import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
+import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 const addDebtSchema = z.object({
   creditor: z.string().min(2, { message: 'اسم الدائن مطلوب.' }),
@@ -47,8 +50,11 @@ const addPaymentSchema = z.object({
   amount: z.coerce.number().positive({ message: 'يجب أن يكون الدفع موجبًا.' }),
 });
 
-function DebtCard({ debt, onAddPayment }: { debt: Debt; onAddPayment: (debtId: string, amount: number) => void }) {
+function DebtCard({ debt }: { debt: Debt; }) {
   const [isPaymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const { user } = useUser();
+  const firestore = useFirestore();
+  const { toast } = useToast();
   
   const form = useForm<z.infer<typeof addPaymentSchema>>({
     resolver: zodResolver(addPaymentSchema),
@@ -57,14 +63,33 @@ function DebtCard({ debt, onAddPayment }: { debt: Debt; onAddPayment: (debtId: s
 
   const totalPaid = debt.payments.reduce((sum, p) => sum + p.amount, 0);
   const remaining = debt.initialAmount - totalPaid;
-  const progress = (totalPaid / debt.initialAmount) * 100;
+  const progress = debt.initialAmount > 0 ? (totalPaid / debt.initialAmount) * 100 : 0;
 
   function onSubmit(values: z.infer<typeof addPaymentSchema>) {
+    if (!user || !firestore) return;
     if (values.amount > remaining) {
       form.setError('amount', { message: `لا يمكن دفع أكثر من المتبقي ${remaining.toFixed(2)} ر.ع.`});
       return;
     }
-    onAddPayment(debt.id, values.amount);
+
+    const debtRef = doc(firestore, 'userProfiles', user.uid, 'debts', debt.id);
+    const newPayment: Payment = {
+      amount: values.amount,
+      date: new Date().toISOString(),
+      debtId: debt.id,
+      userId: user.uid,
+    };
+    
+    // We are not using sub-collections for payments for simplicity here.
+    // Instead, updating the payments array in the debt document.
+    const updatedPayments = [...debt.payments, newPayment];
+    updateDocumentNonBlocking(debtRef, { payments: updatedPayments });
+
+    toast({
+      title: "تمت إضافة الدفعة",
+      description: `تم تسجيل دفعة بمبلغ ${values.amount.toFixed(2)} ر.ع.`
+    });
+
     form.reset();
     setPaymentDialogOpen(false);
   }
@@ -92,8 +117,8 @@ function DebtCard({ debt, onAddPayment }: { debt: Debt; onAddPayment: (debtId: s
          <h4 className="text-sm font-medium">سجل المدفوعات</h4>
         <div className="text-sm text-muted-foreground space-y-1 max-h-24 overflow-y-auto">
           {debt.payments.length > 0 ? (
-            debt.payments.map((p) => (
-              <div key={p.id} className="flex justify-between">
+            debt.payments.map((p, index) => (
+              <div key={index} className="flex justify-between">
                 <span>{new Date(p.date).toLocaleDateString()}</span>
                 <span>{p.amount.toFixed(2)} ر.ع.</span>
               </div>
@@ -146,35 +171,17 @@ function DebtCard({ debt, onAddPayment }: { debt: Debt; onAddPayment: (debtId: s
 
 
 export function DebtManager() {
-  const [debts, setDebts] = useState<Debt[]>([]);
   const [isAddDebtOpen, setAddDebtOpen] = useState(false);
   const { toast } = useToast();
-  const [isClient, setIsClient] = useState(false);
+  const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
 
-  useEffect(() => {
-    setIsClient(true);
-    const storedDebts = localStorage.getItem('debts');
-    if (storedDebts) {
-      try {
-        const parsedDebts = JSON.parse(storedDebts, (key, value) => {
-          if (key === 'date' && typeof value === 'string') {
-            return new Date(value);
-          }
-          return value;
-        });
-        setDebts(parsedDebts);
-      } catch (error) {
-        console.error("Failed to parse debts from localStorage", error);
-        setDebts([]);
-      }
-    }
-  }, []);
+  const debtsCollection = useMemoFirebase(() => {
+    if (!user) return null;
+    return collection(firestore, 'userProfiles', user.uid, 'debts');
+  }, [firestore, user]);
 
-  useEffect(() => {
-    if(isClient) {
-      localStorage.setItem('debts', JSON.stringify(debts));
-    }
-  }, [debts, isClient]);
+  const { data: debts, isLoading: isDebtsLoading } = useCollection<Debt>(debtsCollection);
   
   const form = useForm<z.infer<typeof addDebtSchema>>({
     resolver: zodResolver(addDebtSchema),
@@ -182,12 +189,16 @@ export function DebtManager() {
   });
 
   function onAddDebt(values: z.infer<typeof addDebtSchema>) {
-    const newDebt: Debt = {
-      id: crypto.randomUUID(),
-      ...values,
+    if (!user || !debtsCollection) return;
+
+    const newDebt = {
+      userId: user.uid,
+      creditor: values.creditor,
+      initialAmount: values.initialAmount,
       payments: [],
     };
-    setDebts((prev) => [...prev, newDebt]);
+    addDocumentNonBlocking(debtsCollection, newDebt);
+
     form.reset();
     setAddDebtOpen(false);
     toast({
@@ -196,23 +207,7 @@ export function DebtManager() {
     });
   }
   
-  function onAddPayment(debtId: string, amount: number) {
-     setDebts(prevDebts => prevDebts.map(debt => {
-      if (debt.id === debtId) {
-        const newPayment = { id: crypto.randomUUID(), amount, date: new Date() };
-        return { ...debt, payments: [...debt.payments, newPayment] };
-      }
-      return debt;
-    }));
-    toast({
-      title: "تمت إضافة الدفعة",
-      description: `تم تسجيل دفعة بمبلغ ${amount.toFixed(2)} ر.ع.`
-    })
-  }
-
-  if (!isClient) {
-    return null;
-  }
+  const showLoading = isUserLoading || isDebtsLoading;
 
   return (
     <div className="space-y-6">
@@ -223,7 +218,7 @@ export function DebtManager() {
         </div>
          <Dialog open={isAddDebtOpen} onOpenChange={setAddDebtOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button disabled={!user}>
               <Plus />
               إضافة دين جديد
             </Button>
@@ -275,10 +270,16 @@ export function DebtManager() {
         </Dialog>
       </div>
 
-      {debts.length > 0 ? (
+      {showLoading ? (
+         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <Card><CardHeader><CardTitle><Loader2 className="animate-spin" /></CardTitle></CardHeader><CardContent>جاري التحميل...</CardContent></Card>
+          <Card><CardHeader><CardTitle><Loader2 className="animate-spin" /></CardTitle></CardHeader><CardContent>جاري التحميل...</CardContent></Card>
+          <Card><CardHeader><CardTitle><Loader2 className="animate-spin" /></CardTitle></CardHeader><CardContent>جاري التحميل...</CardContent></Card>
+        </div>
+      ) : debts && debts.length > 0 ? (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
           {debts.map((debt) => (
-            <DebtCard key={debt.id} debt={debt} onAddPayment={onAddPayment} />
+            <DebtCard key={debt.id} debt={debt} />
           ))}
         </div>
       ) : (
