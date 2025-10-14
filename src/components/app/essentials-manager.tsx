@@ -76,6 +76,10 @@ function EssentialsStats({ items }: { items: EssentialItem[] }) {
       return acc;
     }, {} as Record<string, number>);
     
+    if (Object.keys(monthlyTotals).length === 0) {
+      return [];
+    }
+    
     return Object.entries(monthlyTotals)
       .map(([month, total]) => ({
         month: format(new Date(month), 'MMM'),
@@ -146,6 +150,9 @@ export function EssentialsManager() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isEditDialogOpen, setEditDialogOpen] = useState(false);
   const [currentItem, setCurrentItem] = useState<EssentialItem | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
 
   const essentialsCollection = useMemoFirebase(() => {
     if (!user) return null;
@@ -287,6 +294,22 @@ export function EssentialsManager() {
   const totalCost = (items ?? []).reduce((total, item) => total + (item.price ?? 0) * item.quantity, 0);
 
   const showLoading = isUserLoading || isLoading;
+  
+  const sortedItems = useMemo(() => {
+    return items ? [...items].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
+  }, [items]);
+  
+  const pageCount = Math.ceil(sortedItems.length / itemsPerPage);
+  const paginatedItems = sortedItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  const handleNextPage = () => {
+    setCurrentPage((prev) => Math.min(prev + 1, pageCount));
+  };
+
+  const handlePreviousPage = () => {
+    setCurrentPage((prev) => Math.max(prev - 1, 1));
+  };
+
 
   return (
     <div className="space-y-6">
@@ -408,8 +431,8 @@ export function EssentialsManager() {
                       جارٍ تحميل البيانات...
                     </TableCell>
                   </TableRow>
-                ) : items && items.length > 0 ? (
-                  items.map((item) => (
+                ) : paginatedItems && paginatedItems.length > 0 ? (
+                  paginatedItems.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">{item.name}</TableCell>
                       <TableCell className="text-center">
@@ -456,6 +479,29 @@ export function EssentialsManager() {
               </TableBody>
             </Table>
           </div>
+           {pageCount > 1 && (
+            <div className="flex items-center justify-end space-x-2 py-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handlePreviousPage}
+                disabled={currentPage === 1}
+              >
+                السابق
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                صفحة {currentPage} من {pageCount}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleNextPage}
+                disabled={currentPage === pageCount}
+              >
+                التالي
+              </Button>
+            </div>
+          )}
         </CardContent>
         <CardFooter className="flex-col items-start gap-4">
            <div className="flex justify-between w-full">
