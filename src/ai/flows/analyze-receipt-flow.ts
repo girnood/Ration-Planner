@@ -44,7 +44,10 @@ const prompt = ai.definePrompt({
 Please ignore taxes, discounts, totals, and any other information that is not a purchased item.
 
 Analyze the following receipt:
-{{media url=photoDataUri}}`,
+{{media url=photoDataUri}}
+
+Output the extracted items as a valid JSON object that adheres to the defined output schema.
+`,
 });
 
 const analyzeReceiptFlow = ai.defineFlow(
