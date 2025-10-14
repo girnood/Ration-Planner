@@ -124,34 +124,42 @@ export function EssentialsManager() {
     }
   };
 
+  const fileToDataUri = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        resolve(reader.result as string);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleAiAnalyze = async () => {
     if (!receiptFile || !user || !essentialsCollection) return;
     setAiProcessing(true);
     try {
-      const reader = new FileReader();
-      reader.readAsDataURL(receiptFile);
-      reader.onload = async (e) => {
-        const photoDataUri = e.target?.result as string;
-        const { items } = await analyzeReceipt({ photoDataUri });
-        
-        items.forEach(item => {
-           const newItem = {
-            userId: user.uid,
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price ?? 0,
-          };
-          addDocumentNonBlocking(essentialsCollection, newItem);
-        });
+      const photoDataUri = await fileToDataUri(receiptFile);
+      const { items: extractedItems } = await analyzeReceipt({ photoDataUri });
+      
+      extractedItems.forEach(item => {
+          const newItem = {
+          userId: user.uid,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price ?? 0,
+        };
+        addDocumentNonBlocking(essentialsCollection, newItem);
+      });
 
-        toast({
-          title: 'اكتمل التحليل',
-          description: `تمت إضافة ${items.length} عناصر من فاتورتك.`,
-        });
-        setAiDialogOpen(false);
-        setReceiptFile(null);
-        setPreviewUrl(null);
-      };
+      toast({
+        title: 'اكتمل التحليل',
+        description: `تمت إضافة ${extractedItems.length} عناصر من فاتورتك.`,
+      });
+      setAiDialogOpen(false);
+      setReceiptFile(null);
+      setPreviewUrl(null);
+
     } catch (error) {
       console.error("AI analysis failed", error);
       toast({
