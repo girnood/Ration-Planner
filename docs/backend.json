@@ -1,0 +1,237 @@
+{
+  "entities": {
+    "UserProfile": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserProfile",
+      "type": "object",
+      "description": "Represents a user's profile with their budget and preferences.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the user profile."
+        },
+        "name": {
+          "type": "string",
+          "description": "The user's name."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address.",
+          "format": "email"
+        },
+        "monthlyBudget": {
+          "type": "number",
+          "description": "The user's overall spending target for the month."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "monthlyBudget"
+      ]
+    },
+    "EssentialItem": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "EssentialItem",
+      "type": "object",
+      "description": "Represents a monthly essential item with quantity and estimated cost.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the essential item."
+        },
+        "userProfileId": {
+          "type": "string",
+          "description": "Reference to UserProfile. (Relationship: UserProfile 1:N EssentialItem)"
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the essential item (e.g., Milk, Bread)."
+        },
+        "quantity": {
+          "type": "number",
+          "description": "The quantity of the essential item needed per month."
+        },
+        "estimatedCost": {
+          "type": "number",
+          "description": "The estimated cost of the essential item per month."
+        },
+        "category": {
+          "type": "string",
+          "description": "Category of the essential item (e.g., Food, Household)."
+        }
+      },
+      "required": [
+        "id",
+        "userProfileId",
+        "name",
+        "quantity",
+        "estimatedCost",
+        "category"
+      ]
+    },
+    "Debt": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Debt",
+      "type": "object",
+      "description": "Represents a debt owed by the user.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the debt."
+        },
+        "userProfileId": {
+          "type": "string",
+          "description": "Reference to UserProfile. (Relationship: UserProfile 1:N Debt)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of the debt (e.g., Credit card, Loan)."
+        },
+        "totalAmount": {
+          "type": "number",
+          "description": "The total amount of the debt."
+        },
+        "remainingBalance": {
+          "type": "number",
+          "description": "The remaining balance of the debt."
+        },
+        "interestRate": {
+          "type": "number",
+          "description": "The interest rate for the debt."
+        }
+      },
+      "required": [
+        "id",
+        "userProfileId",
+        "description",
+        "totalAmount",
+        "remainingBalance",
+        "interestRate"
+      ]
+    },
+    "Payment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Payment",
+      "type": "object",
+      "description": "Represents a payment made towards a debt.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the payment."
+        },
+        "debtId": {
+          "type": "string",
+          "description": "Reference to Debt. (Relationship: Debt 1:N Payment)"
+        },
+        "amount": {
+          "type": "number",
+          "description": "The amount of the payment."
+        },
+        "paymentDate": {
+          "type": "string",
+          "description": "The date the payment was made.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "debtId",
+        "amount",
+        "paymentDate"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/userProfiles/{userProfileId}",
+        "definition": {
+          "entityName": "UserProfile",
+          "schema": {
+            "$ref": "#/backend/entities/UserProfile"
+          },
+          "description": "Stores user profile information. Each document represents a single user's profile.",
+          "params": [
+            {
+              "name": "userProfileId",
+              "description": "The unique identifier for the user's profile.  This is equivalent to the Firebase Auth UID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/userProfiles/{userProfileId}/essentials/{essentialId}",
+        "definition": {
+          "entityName": "EssentialItem",
+          "schema": {
+            "$ref": "#/backend/entities/EssentialItem"
+          },
+          "description": "Stores essential items for a user.  Owned by the userProfile. userProfileId is denormalized.",
+          "params": [
+            {
+              "name": "userProfileId",
+              "description": "The unique identifier for the user's profile."
+            },
+            {
+              "name": "essentialId",
+              "description": "The unique identifier for the essential item."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/userProfiles/{userProfileId}/debts/{debtId}",
+        "definition": {
+          "entityName": "Debt",
+          "schema": {
+            "$ref": "#/backend/entities/Debt"
+          },
+          "description": "Stores debt information for a user. Owned by the userProfile. userProfileId is denormalized.",
+          "params": [
+            {
+              "name": "userProfileId",
+              "description": "The unique identifier for the user's profile."
+            },
+            {
+              "name": "debtId",
+              "description": "The unique identifier for the debt."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/userProfiles/{userProfileId}/debts/{debtId}/payments/{paymentId}",
+        "definition": {
+          "entityName": "Payment",
+          "schema": {
+            "$ref": "#/backend/entities/Payment"
+          },
+          "description": "Stores payment information for a debt. Owned by the userProfile and Debt. debtId is denormalized.",
+          "params": [
+            {
+              "name": "userProfileId",
+              "description": "The unique identifier for the user's profile."
+            },
+            {
+              "name": "debtId",
+              "description": "The unique identifier for the debt."
+            },
+            {
+              "name": "paymentId",
+              "description": "The unique identifier for the payment."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is designed to manage user profiles, essential items, debts, and payments for the Ration Planner application. It emphasizes authorization independence and supports secure list operations.\n\n**Authorization Independence:**\n\n*   The `EssentialItem`, `Debt` and `Payment` collections are created as subcollections of the `UserProfile` to create a path-based ownership structure. This approach means security rules can be enforced based on the `userId` without needing to read parent documents.\n\n**Structural Segregation:**\n\n*   User profiles are stored in the `/userProfiles/{userProfileId}` collection, ensuring a homogeneous security posture for all user profile documents.  Essential items, debts, and payments are stored as subcollections under each user's profile.\n\n**Access Modeling:**\n\n*   **Private Data:** User profiles and associated data (essentials, debts, payments) are considered private and accessible only to the authenticated user. This is enforced by the path-based ownership structure (`/userProfiles/{userId}/essentials/...`).\n\n**QAPs (Rules are not Filters):**\n\n*   The path-based structure enables secure list operations by allowing rules to filter based on the `userId` in the path.  A user can only list items within their profile.\n\n**Invariants:**\n\n*   The structure supports the integrity of ownership, as each essential item, debt, and payment is directly linked to a user profile via the path. Timestamps can be added to documents to track creation and modification times.\n\nThis structure provides a secure and scalable foundation for the Ration Planner application, allowing for efficient data management and clear, enforceable security rules."
+  }
+}

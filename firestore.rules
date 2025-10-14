@@ -1,0 +1,128 @@
+/**
+ * @fileoverview Firestore Security Rules for Ration Planner.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a strict user-ownership model. Each user has exclusive
+ * access to their profile data and associated essential items, debts, and payments.
+ *
+ * Data Structure:
+ * All data is nested under `/userProfiles/{userId}`, ensuring that data access
+ * can be controlled based on the user's ID in the path. The data structure is as follows:
+ *   - /userProfiles/{userProfileId}
+ *   - /userProfiles/{userProfileId}/essentials/{essentialId}
+ *   - /userProfiles/{userProfileId}/debts/{debtId}
+ *   - /userProfiles/{userProfileId}/debts/{debtId}/payments/{paymentId}
+ *
+ * Key Security Decisions:
+ *  - Users can only access their own profile and associated data.
+ *  - No listing of all user profiles is allowed.
+ *  - Data validation is relaxed in this prototype to allow for rapid iteration,
+ *    focusing instead on authorization and relational integrity.
+ *
+ * Denormalization for Authorization:
+ * The data model uses a path-based authorization strategy. Subcollections are nested under user profiles,
+ * allowing for efficient security checks based on the user ID in the path. This avoids the need for additional
+ * `get()` calls to verify ownership.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Enforces user-ownership for user profiles.
+     * @path /userProfiles/{userProfileId}
+     * @allow (create) Authenticated user can create their own profile.
+     * @allow (get, update, delete) Authenticated user can get, update and delete their own profile.
+     * @deny (create) If the user tries to create a profile with an ID that doesn't match their auth UID.
+     * @deny (get, update, delete) If the user tries to access a profile that doesn't belong to them.
+     * @principle Enforces document ownership for all operations.
+     */
+    match /userProfiles/{userProfileId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userProfileId);
+      allow list: if false;
+      allow create: if isOwner(userProfileId) && request.resource.data.id == userProfileId;
+      allow update: if isExistingOwner(userProfileId) && request.resource.data.id == resource.data.id;
+      allow delete: if isExistingOwner(userProfileId);
+    }
+
+    /**
+     * @description Enforces user-ownership for essential items.
+     * @path /userProfiles/{userProfileId}/essentials/{essentialId}
+     * @allow (create) Authenticated user can create essential items under their profile.
+     * @allow (get, list, update, delete) Authenticated user can get, list, update, and delete essential items under their profile.
+     * @deny (create, get, list, update, delete) If the user tries to access essential items that don't belong to them.
+     * @principle Enforces document ownership for all operations.
+     */
+    match /userProfiles/{userProfileId}/essentials/{essentialId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userProfileId);
+      allow list: if isOwner(userProfileId);
+      allow create: if isOwner(userProfileId) && request.resource.data.userProfileId == userProfileId;
+      allow update: if isExistingOwner(userProfileId) && request.resource.data.userProfileId == userProfileId;
+      allow delete: if isExistingOwner(userProfileId);
+    }
+
+    /**
+     * @description Enforces user-ownership for debts.
+     * @path /userProfiles/{userProfileId}/debts/{debtId}
+     * @allow (create) Authenticated user can create debts under their profile.
+     * @allow (get, list, update, delete) Authenticated user can get, list, update, and delete debts under their profile.
+     * @deny (create, get, list, update, delete) If the user tries to access debts that don't belong to them.
+     * @principle Enforces document ownership for all operations.
+     */
+    match /userProfiles/{userProfileId}/debts/{debtId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userProfileId);
+      allow list: if isOwner(userProfileId);
+      allow create: if isOwner(userProfileId) && request.resource.data.userProfileId == userProfileId;
+      allow update: if isExistingOwner(userProfileId) && request.resource.data.userProfileId == userProfileId;
+      allow delete: if isExistingOwner(userProfileId);
+    }
+
+    /**
+     * @description Enforces user-ownership for payments.
+     * @path /userProfiles/{userProfileId}/debts/{debtId}/payments/{paymentId}
+     * @allow (create) Authenticated user can create payments under their debts and profile.
+     * @allow (get, list, update, delete) Authenticated user can get, list, update, and delete payments under their debts and profile.
+     * @deny (create, get, list, update, delete) If the user tries to access payments that don't belong to them.
+     * @principle Enforces document ownership for all operations.
+     */
+    match /userProfiles/{userProfileId}/debts/{debtId}/payments/{paymentId} {
+      function isOwner(userId) {
+        return request.auth != null && request.auth.uid == userId;
+      }
+
+      function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+      }
+
+      allow get: if isOwner(userProfileId);
+      allow list: if isOwner(userProfileId);
+      allow create: if isOwner(userProfileId) && request.resource.data.debtId == debtId;
+      allow update: if isExistingOwner(userProfileId) && request.resource.data.debtId == debtId;
+      allow delete: if isExistingOwner(userProfileId);
+    }
+  }
+}
