@@ -64,28 +64,37 @@ function EssentialsStats({ items }: { items: EssentialItem[] }) {
     }
 
     const monthlyTotals = items.reduce((acc, item) => {
-      // Ensure createdAt exists before processing
       if (item.createdAt) {
-        const month = format(new Date(item.createdAt), 'yyyy-MM');
-        const cost = (item.price || 0) * item.quantity;
-        if (!acc[month]) {
-          acc[month] = 0;
+        try {
+          const itemDate = new Date(item.createdAt);
+          if (isNaN(itemDate.getTime())) {
+            // Invalid date, skip this item
+            return acc;
+          }
+          const month = format(itemDate, 'yyyy-MM');
+          const cost = (item.price || 0) * item.quantity;
+          if (!acc[month]) {
+            acc[month] = { total: 0, date: itemDate };
+          }
+          acc[month].total += cost;
+        } catch (e) {
+            // Ignore items with invalid date format
         }
-        acc[month] += cost;
       }
       return acc;
-    }, {} as Record<string, number>);
-    
+    }, {} as Record<string, { total: number; date: Date }>);
+
     if (Object.keys(monthlyTotals).length === 0) {
       return [];
     }
     
     return Object.entries(monthlyTotals)
-      .map(([month, total]) => ({
-        month: format(new Date(month), 'MMM'),
-        total,
+      .map(([_, value]) => ({
+        month: format(value.date, 'MMM'),
+        total: value.total,
+        fullDate: value.date,
       }))
-      .sort((a, b) => new Date(a.month).getMonth() - new Date(b.month).getMonth());
+      .sort((a, b) => a.fullDate.getTime() - b.fullDate.getTime());
 
   }, [items]);
 
@@ -296,7 +305,13 @@ export function EssentialsManager() {
   const showLoading = isUserLoading || isLoading;
   
   const sortedItems = useMemo(() => {
-    return items ? [...items].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()) : [];
+    return items ? [...items].sort((a, b) => {
+        try {
+            return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        } catch (e) {
+            return 0;
+        }
+    }) : [];
   }, [items]);
   
   const pageCount = Math.ceil(sortedItems.length / itemsPerPage);

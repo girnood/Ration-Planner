@@ -29,10 +29,9 @@ import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
-
 const profileSchema = z.object({
   budget: z.coerce.number().positive({ message: 'يجب أن تكون الميزانية رقمًا موجبًا.' }),
-  name: z.string().optional(),
+  name: z.string().min(2, { message: 'يجب أن يتكون الاسم من حرفين على الأقل.' }).optional(),
 });
 
 export function ProfileManager() {
@@ -56,6 +55,8 @@ export function ProfileManager() {
     },
   });
 
+  const { formState: { isSubmitting } } = form;
+
   useEffect(() => {
     if (userProfile) {
       form.reset({
@@ -63,39 +64,48 @@ export function ProfileManager() {
         name: userProfile.name || user?.displayName || '',
       });
     } else if (user) {
-       form.reset({
+      form.reset({
         budget: 1000,
         name: user.displayName || '',
       });
     }
-  }, [userProfile, user, form]);
+  }, [userProfile, user, form.reset]);
 
-  function onSubmit(values: z.infer<typeof profileSchema>) {
+  async function onSubmit(values: z.infer<typeof profileSchema>) {
     if (!userProfileRef || !user) return;
     
     const profileData = {
       budget: values.budget,
       name: values.name,
-      email: user.email, // Assuming email is available from user object
+      email: user.email,
       userId: user.uid,
     };
 
-    setDocumentNonBlocking(userProfileRef, profileData, { merge: true });
+    try {
+      await setDocumentNonBlocking(userProfileRef, profileData, { merge: true });
 
-    toast({
-      title: 'تم تحديث الملف الشخصي',
-      description: `تم حفظ إعداداتك بنجاح.`,
-    });
+      toast({
+        title: 'تم تحديث الملف الشخصي',
+        description: 'تم حفظ إعداداتك بنجاح.',
+      });
+    } catch (error) {
+      console.error("Failed to update profile:", error);
+      toast({
+        title: 'حدث خطأ',
+        description: 'لم نتمكن من حفظ التغييرات. يرجى المحاولة مرة أخرى.',
+        variant: 'destructive',
+      });
+    }
   }
 
-  const showLoading = isUserLoading || isProfileLoading;
+  const isDataLoading = isUserLoading || isProfileLoading;
 
   return (
     <div className="space-y-6">
-       <div>
-          <h1 className="font-headline text-2xl">الملف الشخصي والإعدادات</h1>
-          <p className="text-muted-foreground">إدارة ميزانيتك ومعلوماتك الشخصية.</p>
-        </div>
+      <div>
+        <h1 className="font-headline text-2xl">الملف الشخصي والإعدادات</h1>
+        <p className="text-muted-foreground">إدارة ميزانيتك ومعلوماتك الشخصية.</p>
+      </div>
 
       <Card>
         <CardHeader className="flex flex-row items-center gap-4">
@@ -105,7 +115,7 @@ export function ProfileManager() {
           </Avatar>
           <div>
             <CardTitle className="font-headline text-xl">
-              {showLoading ? 'جار التحميل...' : `أهلاً بك، ${userProfile?.name || 'مستخدم'}!`}
+              {isDataLoading ? 'جار التحميل...' : `أهلاً بك، ${userProfile?.name || user?.displayName || 'مستخدم'}!`}
             </CardTitle>
             <CardDescription>
               حدد هدف الإنفاق الشهري وأدر معلوماتك.
@@ -115,7 +125,7 @@ export function ProfileManager() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 max-w-sm">
-               <FormField
+              <FormField
                 control={form.control}
                 name="name"
                 render={({ field }) => (
@@ -125,7 +135,7 @@ export function ProfileManager() {
                       <Input
                         placeholder="اسمك"
                         {...field}
-                        disabled={showLoading}
+                        disabled={isDataLoading || isSubmitting}
                       />
                     </FormControl>
                     <FormMessage />
@@ -146,17 +156,26 @@ export function ProfileManager() {
                           placeholder="1000.00"
                           className="pl-10"
                           {...field}
-                          disabled={showLoading}
+                          disabled={isDataLoading || isSubmitting}
                         />
-FormControl>
+                      </FormControl>
                     </div>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-              <Button type="submit" disabled={showLoading}>
-                 {showLoading ? <Loader2 className="animate-spin" /> : <Save />}
-                حفظ التغييرات
+              <Button type="submit" disabled={isDataLoading || isSubmitting} className="w-40">
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    جارِ الحفظ
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    حفظ التغييرات
+                  </>
+                )}
               </Button>
             </form>
           </Form>

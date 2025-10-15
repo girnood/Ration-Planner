@@ -26,9 +26,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Goal, Save, Plus, Trash, Loader2 } from 'lucide-react';
 import type { SavingsContribution } from '@/lib/types';
 import { Separator } from '@/components/ui/separator';
-import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
-import { setDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { useUser, useFirestore, useCollection, useDoc, useMemoFirebase, addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase';
+import { collection, doc, setDoc } from 'firebase/firestore';
 
 
 const addContributionSchema = z.object({
@@ -58,9 +57,6 @@ export function IncomeCalculator() {
 
   const contributionsCollection = useMemoFirebase(() => {
     if (!user) return null;
-    // For simplicity, contributions are stored in a subcollection of userProfile.
-    // This is not the most ideal structure but works for this case. A better approach would be
-    // to store them under a separate top-level collection.
     return collection(firestore, 'userProfiles', user.uid, 'savingsContributions');
   }, [firestore, user]);
 
@@ -87,15 +83,23 @@ export function IncomeCalculator() {
   }, [userProfile, goalForm]);
 
 
-  function onGoalSubmit(values: z.infer<typeof savingsGoalSchema>) {
+  async function onGoalSubmit(values: z.infer<typeof savingsGoalSchema>) {
     if (!userProfileRef) return;
-    setDocumentNonBlocking(userProfileRef, { savingsGoal: values.amount }, { merge: true });
-    toast({
-      title: 'تم تحديث هدف الادخار',
-      description: `تم تحديد هدف الادخار السنوي بمبلغ ${values.amount.toFixed(
-        2
-      )} ر.ع.`,
-    });
+    try {
+        await setDoc(userProfileRef, { savingsGoal: values.amount }, { merge: true });
+        toast({
+          title: 'تم تحديث هدف الادخar',
+          description: `تم تحديد هدف الادخار السنوي بمبلغ ${values.amount.toFixed(
+            2
+          )} ر.ع.`,
+        });
+    } catch (error) {
+        toast({
+            variant: 'destructive',
+            title: 'خطأ في تحديث الهدف',
+            description: 'حدث خطأ أثناء حفظ هدف الادخار. يرجى المحاولة مرة أخرى.',
+        });
+    }
   }
 
   function onContributionSubmit(
