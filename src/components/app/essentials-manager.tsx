@@ -62,6 +62,8 @@ export function EssentialsManager() {
   const [isAiProcessing, setAiProcessing] = useState(false);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const essentialsCollection = useMemoFirebase(() => {
     if (!user) return null;
@@ -188,6 +190,19 @@ export function EssentialsManager() {
     }) : [];
   }, [items]);
 
+  const totalPages = Math.ceil(sortedItems.length / itemsPerPage);
+  const paginatedItems = sortedItems.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+
   return (
     <div className="space-y-6">
       <Card>
@@ -308,8 +323,8 @@ export function EssentialsManager() {
                       جارٍ تحميل البيانات...
                     </TableCell>
                   </TableRow>
-                ) : sortedItems && sortedItems.length > 0 ? (
-                  sortedItems.map((item) => (
+                ) : paginatedItems && paginatedItems.length > 0 ? (
+                  paginatedItems.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">{item.name}</TableCell>
                       <TableCell className="text-center">
@@ -353,8 +368,33 @@ export function EssentialsManager() {
             <span className="font-semibold text-lg">التكلفة الإجمالية:</span>
             <span className="font-bold text-lg text-primary">{totalCost.toFixed(2)} ر.ع.</span>
           </div>
+          {totalPages > 1 && (
+            <div className="flex items-center justify-end w-full gap-2 pt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+              >
+                السابق
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                صفحة {currentPage} من {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+              >
+                التالي
+              </Button>
+            </div>
+          )}
         </CardFooter>
       </Card>
     </div>
   );
 }
+
+    
