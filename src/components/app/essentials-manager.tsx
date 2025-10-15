@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -83,11 +83,11 @@ function EssentialsStats({ items }: { items: EssentialItem[] }) {
       }
       return acc;
     }, {} as Record<string, { total: number; date: Date }>);
-
+    
     if (Object.keys(monthlyTotals).length === 0) {
       return [];
     }
-    
+
     return Object.entries(monthlyTotals)
       .map(([_, value]) => ({
         month: format(value.date, 'MMM'),
@@ -161,7 +161,11 @@ export function EssentialsManager() {
   const [currentItem, setCurrentItem] = useState<EssentialItem | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [isMounted, setIsMounted] = useState(false);
 
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const essentialsCollection = useMemoFirebase(() => {
     if (!user) return null;
@@ -526,7 +530,7 @@ export function EssentialsManager() {
         </CardFooter>
       </Card>
       
-      {items && items.length > 0 && <EssentialsStats items={items} />}
+      {isMounted && items && items.length > 0 && <EssentialsStats items={items} />}
 
       {/* Edit Item Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setEditDialogOpen}>

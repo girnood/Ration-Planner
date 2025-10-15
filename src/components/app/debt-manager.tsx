@@ -66,7 +66,8 @@ function DebtCard({ debt }: { debt: Debt; }) {
   const progress = debt.initialAmount > 0 ? (totalPaid / debt.initialAmount) * 100 : 0;
 
   function onSubmit(values: z.infer<typeof addPaymentSchema>) {
-    if (!user || !firestore) return;
+    if (!user || !firestore || !debt) return;
+    
     if (values.amount > remaining) {
       form.setError('amount', { message: `لا يمكن دفع أكثر من المتبقي ${remaining.toFixed(2)} ر.ع.`});
       return;
