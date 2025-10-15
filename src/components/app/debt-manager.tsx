@@ -61,7 +61,8 @@ function DebtCard({ debt }: { debt: Debt; }) {
     defaultValues: { amount: 0 },
   });
 
-  const totalPaid = debt.payments.reduce((sum, p) => sum + p.amount, 0);
+  const safePayments = debt.payments || [];
+  const totalPaid = safePayments.reduce((sum, p) => sum + p.amount, 0);
   const remaining = debt.initialAmount - totalPaid;
   const progress = debt.initialAmount > 0 ? (totalPaid / debt.initialAmount) * 100 : 0;
 
@@ -81,9 +82,7 @@ function DebtCard({ debt }: { debt: Debt; }) {
       userId: user.uid,
     };
     
-    // We are not using sub-collections for payments for simplicity here.
-    // Instead, updating the payments array in the debt document.
-    const updatedPayments = [...debt.payments, newPayment];
+    const updatedPayments = [...safePayments, newPayment];
     updateDocumentNonBlocking(debtRef, { payments: updatedPayments });
 
     toast({
@@ -117,8 +116,8 @@ function DebtCard({ debt }: { debt: Debt; }) {
         <Separator />
          <h4 className="text-sm font-medium">سجل المدفوعات</h4>
         <div className="text-sm text-muted-foreground space-y-1 max-h-24 overflow-y-auto">
-          {debt.payments.length > 0 ? (
-            debt.payments.map((p, index) => (
+          {safePayments.length > 0 ? (
+            safePayments.map((p, index) => (
               <div key={index} className="flex justify-between">
                 <span>{new Date(p.date).toLocaleDateString()}</span>
                 <span>{p.amount.toFixed(2)} ر.ع.</span>

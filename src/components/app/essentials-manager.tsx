@@ -32,10 +32,10 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { EssentialItem } from '@/lib/types';
-import { Plus, Trash, NotebookText, Sparkles, Loader2, Pencil } from 'lucide-react';
+import { Plus, Trash, NotebookText, Sparkles, Loader2 } from 'lucide-react';
 import { useUser, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
-import { addDocumentNonBlocking, deleteDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { addDocumentNonBlocking, deleteDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import {
   Dialog,
   DialogContent,
@@ -47,107 +47,12 @@ import {
   DialogClose
 } from '@/components/ui/dialog';
 import { analyzeReceipt } from '@/ai/flows/analyze-receipt-flow';
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis, Tooltip as ChartTooltip, ResponsiveContainer } from 'recharts';
-import { ChartContainer, ChartTooltipContent } from '@/components/ui/chart';
-import { format } from 'date-fns';
 
 const formSchema = z.object({
   name: z.string().min(2, { message: 'يجب أن يتكون اسم العنصر من حرفين على الأقل.' }),
   quantity: z.coerce.number().min(1, { message: 'يجب أن تكون الكمية 1 على الأقل.' }),
   price: z.coerce.number().min(0, { message: 'يجب أن يكون السعر رقمًا موجبًا.' }).optional(),
 });
-
-function EssentialsStats({ items }: { items: EssentialItem[] }) {
-  const monthlyData = useMemo(() => {
-    if (!items || items.length === 0) {
-      return [];
-    }
-
-    const monthlyTotals = items.reduce((acc, item) => {
-      if (item.createdAt) {
-        try {
-          const itemDate = new Date(item.createdAt);
-          if (isNaN(itemDate.getTime())) {
-            // Invalid date, skip this item
-            return acc;
-          }
-          const month = format(itemDate, 'yyyy-MM');
-          const cost = (item.price || 0) * item.quantity;
-          if (!acc[month]) {
-            acc[month] = { total: 0, date: itemDate };
-          }
-          acc[month].total += cost;
-        } catch (e) {
-            // Ignore items with invalid date format
-        }
-      }
-      return acc;
-    }, {} as Record<string, { total: number; date: Date }>);
-    
-    if (Object.keys(monthlyTotals).length === 0) {
-      return [];
-    }
-
-    return Object.entries(monthlyTotals)
-      .map(([_, value]) => ({
-        month: format(value.date, 'MMM'),
-        total: value.total,
-        fullDate: value.date,
-      }))
-      .sort((a, b) => a.fullDate.getTime() - b.fullDate.getTime());
-
-  }, [items]);
-
-  if (!monthlyData || monthlyData.length === 0) {
-    return null; // Don't render the card if there's no data
-  }
-
-  const chartConfig = {
-    total: {
-      label: "الإجمالي",
-      color: "hsl(var(--primary))",
-    },
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>الإحصائيات الشهرية</CardTitle>
-        <CardDescription>نظرة عامة على إنفاقك على المستلزمات الأساسية شهريًا.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ChartContainer config={chartConfig} className="min-h-[200px] w-full">
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={monthlyData} margin={{ top: 20, right: 20, left: -10, bottom: 5 }}>
-              <CartesianGrid vertical={false} />
-              <XAxis
-                dataKey="month"
-                tickLine={false}
-                axisLine={false}
-                tickMargin={8}
-              />
-              <YAxis
-                tickFormatter={(value) => `${value} ر.ع`}
-                tickLine={false}
-                axisLine={false}
-                width={80}
-              />
-              <ChartTooltip
-                cursor={false}
-                content={<ChartTooltipContent
-                  formatter={(value) => `${(value as number).toFixed(2)} ر.ع`}
-                  labelClassName="font-bold"
-                />}
-              />
-              <Bar dataKey="total" fill="var(--color-total)" radius={4} />
-            </BarChart>
-          </ResponsiveContainer>
-        </ChartContainer>
-      </CardContent>
-    </Card>
-  );
-}
-
 
 export function EssentialsManager() {
   const { toast } = useToast();
@@ -157,15 +62,6 @@ export function EssentialsManager() {
   const [isAiProcessing, setAiProcessing] = useState(false);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [isEditDialogOpen, setEditDialogOpen] = useState(false);
-  const [currentItem, setCurrentItem] = useState<EssentialItem | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   const essentialsCollection = useMemoFirebase(() => {
     if (!user) return null;
@@ -182,33 +78,7 @@ export function EssentialsManager() {
       price: undefined
     },
   });
-
-  const editForm = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
-  });
-
-  function openEditDialog(item: EssentialItem) {
-    setCurrentItem(item);
-    editForm.reset({
-      name: item.name,
-      quantity: item.quantity,
-      price: item.price,
-    });
-    setEditDialogOpen(true);
-  }
-
-  function onEditSubmit(values: z.infer<typeof formSchema>) {
-    if (!user || !currentItem) return;
-    const itemRef = doc(firestore, 'userProfiles', user.uid, 'essentials', currentItem.id);
-    updateDocumentNonBlocking(itemRef, values);
-    toast({
-      title: 'تم تحديث العنصر',
-      description: `تم تحديث "${values.name}" بنجاح.`,
-    });
-    setEditDialogOpen(false);
-    setCurrentItem(null);
-  }
-
+  
   function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user || !essentialsCollection) return;
 
@@ -317,18 +187,6 @@ export function EssentialsManager() {
         }
     }) : [];
   }, [items]);
-  
-  const pageCount = Math.ceil(sortedItems.length / itemsPerPage);
-  const paginatedItems = sortedItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  const handleNextPage = () => {
-    setCurrentPage((prev) => Math.min(prev + 1, pageCount));
-  };
-
-  const handlePreviousPage = () => {
-    setCurrentPage((prev) => Math.max(prev - 1, 1));
-  };
-
 
   return (
     <div className="space-y-6">
@@ -450,8 +308,8 @@ export function EssentialsManager() {
                       جارٍ تحميل البيانات...
                     </TableCell>
                   </TableRow>
-                ) : paginatedItems && paginatedItems.length > 0 ? (
-                  paginatedItems.map((item) => (
+                ) : sortedItems && sortedItems.length > 0 ? (
+                  sortedItems.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium">{item.name}</TableCell>
                       <TableCell className="text-center">
@@ -465,15 +323,6 @@ export function EssentialsManager() {
                         {item.createdAt ? new Date(item.createdAt).toLocaleDateString('ar-OM') : '-'}
                       </TableCell>
                       <TableCell className="text-right">
-                         <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEditDialog(item)}
-                          aria-label={`تعديل ${item.name}`}
-                          className="mr-2"
-                        >
-                          <Pencil className="text-blue-500" />
-                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
@@ -498,29 +347,6 @@ export function EssentialsManager() {
               </TableBody>
             </Table>
           </div>
-           {pageCount > 1 && (
-            <div className="flex items-center justify-end space-x-2 py-4">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePreviousPage}
-                disabled={currentPage === 1}
-              >
-                السابق
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                صفحة {currentPage} من {pageCount}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleNextPage}
-                disabled={currentPage === pageCount}
-              >
-                التالي
-              </Button>
-            </div>
-          )}
         </CardContent>
         <CardFooter className="flex-col items-start gap-4">
            <div className="flex justify-between w-full">
@@ -529,69 +355,6 @@ export function EssentialsManager() {
           </div>
         </CardFooter>
       </Card>
-      
-      {isMounted && items && items.length > 0 && <EssentialsStats items={items} />}
-
-      {/* Edit Item Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>تعديل العنصر</DialogTitle>
-            <DialogDescription>
-              قم بتحديث تفاصيل العنصر أدناه.
-            </DialogDescription>
-          </DialogHeader>
-          <Form {...editForm}>
-            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4">
-              <FormField
-                control={editForm.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>اسم العنصر</FormLabel>
-                    <FormControl>
-                      <Input {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="price"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>السعر (اختياري)</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.01" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={editForm.control}
-                name="quantity"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>الكمية</FormLabel>
-                    <FormControl>
-                      <Input type="number" min="1" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <DialogFooter>
-                <DialogClose asChild>
-                  <Button type="button" variant="secondary">إلغاء</Button>
-                </DialogClose>
-                <Button type="submit">حفظ التغييرات</Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
