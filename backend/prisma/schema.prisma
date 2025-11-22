@@ -1,0 +1,82 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  extensions = [postgis]
+}
+
+enum UserRole {
+  CUSTOMER
+  PROVIDER
+  ADMIN
+}
+
+enum ProviderStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum OrderStatus {
+  SEARCHING
+  ACCEPTED
+  ARRIVED
+  IN_PROGRESS
+  COMPLETED
+}
+
+model User {
+  id        String   @id @default(uuid())
+  phone     String   @unique
+  role      UserRole
+  is_active Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  providerProfile ProviderProfile?
+  ordersAsCustomer Order[] @relation("CustomerOrders")
+  ordersAsDriver   Order[] @relation("DriverOrders")
+}
+
+model ProviderProfile {
+  id            String         @id @default(uuid())
+  user          User           @relation(fields: [userId], references: [id])
+  userId        String         @unique
+  vehicle_type  String // Flatbed/WheelLift
+  plate_number  String
+  status        ProviderStatus @default(PENDING)
+  // PostGIS Point support is usually handled via Unsupported type or specific field handling in Prisma
+  // For simplicity and compatibility in this scaffold, we will assume standard columns or use Unsupported if strictly required.
+  // Using Unsupported for geometry to allow raw SQL queries which are best for PostGIS.
+  current_location Unsupported("geometry(Point, 4326)")? 
+  is_online     Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  customer        User        @relation("CustomerOrders", fields: [customerId], references: [id])
+  customerId      String
+  driver          User?       @relation("DriverOrders", fields: [driverId], references: [id])
+  driverId        String?
+  
+  pickup_lat      Float
+  pickup_lng      Float
+  dropoff_lat     Float
+  dropoff_lng     Float
+  
+  price_estimated Decimal     @db.Decimal(10, 3) // OMR has 3 decimal places often used
+  status          OrderStatus @default(SEARCHING)
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
