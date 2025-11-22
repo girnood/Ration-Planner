@@ -1,0 +1,7 @@
+export declare enum OrderStatus {
+    SEARCHING = "SEARCHING",
+    ACCEPTED = "ACCEPTED",
+    ARRIVED = "ARRIVED",
+    IN_PROGRESS = "IN_PROGRESS",
+    COMPLETED = "COMPLETED"
+}
