@@ -1,0 +1,85 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  extensions = [
+    { name = "postgis", version = "3" }
+  ]
+}
+
+model User {
+  id        String   @id @default(uuid())
+  phone     String   @unique
+  role      UserRole
+  locale    String?  @default("en")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  providerProfile ProviderProfile?
+  customerOrders  Order[] @relation("CustomerOrders")
+  driverOrders    Order[] @relation("DriverOrders")
+}
+
+model ProviderProfile {
+  id               String      @id @default(uuid())
+  userId           String      @unique
+  user             User        @relation(fields: [userId], references: [id])
+  vehicleType      VehicleType
+  plateNumber      String
+  status           ProviderStatus @default(PENDING)
+  currentLocation  Unsupported("geometry(Point,4326)")?
+  currentLat       Decimal?
+  currentLng       Decimal?
+  isOnline         Boolean     @default(false)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  orders Order[]
+}
+
+model Order {
+  id             String      @id @default(uuid())
+  customerId     String
+  driverId       String?
+  pickupLat      Decimal
+  pickupLng      Decimal
+  dropoffLat     Decimal
+  dropoffLng     Decimal
+  priceEstimated Decimal
+  status         OrderStatus @default(SEARCHING)
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  customer User @relation("CustomerOrders", fields: [customerId], references: [id])
+  driver   User? @relation("DriverOrders", fields: [driverId], references: [id])
+}
+
+enum UserRole {
+  CUSTOMER
+  PROVIDER
+  ADMIN
+}
+
+enum ProviderStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum VehicleType {
+  FLATBED
+  WHEELLIFT
+}
+
+enum OrderStatus {
+  SEARCHING
+  ACCEPTED
+  ARRIVED
+  IN_PROGRESS
+  COMPLETED
+}
