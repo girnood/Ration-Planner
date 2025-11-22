@@ -1,0 +1,187 @@
+// Prisma Schema for Munkith Roadside Assistance App
+// Database: PostgreSQL with PostGIS extension
+
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  extensions = [postgis]
+}
+
+// ============================================
+// USER ROLES ENUM
+// ============================================
+enum UserRole {
+  CUSTOMER
+  PROVIDER
+  ADMIN
+}
+
+// ============================================
+// PROVIDER STATUS ENUM
+// ============================================
+enum ProviderStatus {
+  PENDING   // Awaiting admin approval
+  APPROVED  // Approved and can accept orders
+  REJECTED  // Rejected by admin
+  SUSPENDED // Temporarily suspended
+}
+
+// ============================================
+// VEHICLE TYPE ENUM
+// ============================================
+enum VehicleType {
+  FLATBED
+  WHEEL_LIFT
+}
+
+// ============================================
+// ORDER STATUS ENUM
+// ============================================
+enum OrderStatus {
+  SEARCHING     // Looking for available driver
+  OFFERED       // Offered to a driver, awaiting response
+  ACCEPTED      // Driver accepted the order
+  ARRIVED       // Driver arrived at pickup location
+  IN_PROGRESS   // Towing in progress
+  COMPLETED     // Order completed successfully
+  CANCELLED     // Order cancelled
+}
+
+// ============================================
+// USERS TABLE
+// ============================================
+model User {
+  id            String      @id @default(uuid())
+  phone         String      @unique
+  name          String?
+  email         String?     @unique
+  role          UserRole    @default(CUSTOMER)
+  isActive      Boolean     @default(true) @map("is_active")
+  passwordHash  String?     @map("password_hash") // Optional for phone-only auth
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
+
+  // Relations
+  providerProfile Provider?
+  customerOrders  Order[]   @relation("CustomerOrders")
+  driverOrders    Order[]   @relation("DriverOrders")
+
+  @@map("users")
+}
+
+// ============================================
+// PROVIDER PROFILE TABLE
+// ============================================
+model Provider {
+  id              String          @id @default(uuid())
+  userId          String          @unique @map("user_id")
+  vehicleType     VehicleType     @map("vehicle_type")
+  plateNumber     String          @map("plate_number")
+  status          ProviderStatus  @default(PENDING)
+  isOnline        Boolean         @default(false) @map("is_online")
+  
+  // Geospatial location (using PostGIS Point type)
+  // Format: POINT(longitude latitude) - e.g., POINT(58.4059 23.6100) for Muscat
+  currentLocation String?         @map("current_location") // PostGIS geography point
+  currentLat      Float?          @map("current_lat")      // Cached for easier queries
+  currentLng      Float?          @map("current_lng")      // Cached for easier queries
+  
+  // Driver details
+  licenseNumber   String?         @map("license_number")
+  vehicleModel    String?         @map("vehicle_model")
+  vehicleYear     Int?            @map("vehicle_year")
+  
+  // Stats
+  totalOrders     Int             @default(0) @map("total_orders")
+  rating          Float?          @default(5.0)
+  
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @updatedAt @map("updated_at")
+
+  // Relations
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("providers")
+  @@index([status, isOnline])
+  @@index([currentLat, currentLng])
+}
+
+// ============================================
+// ORDERS TABLE
+// ============================================
+model Order {
+  id                String       @id @default(uuid())
+  orderNumber       String       @unique @map("order_number") // Human-readable order number
+  
+  // Customer & Driver
+  customerId        String       @map("customer_id")
+  driverId          String?      @map("driver_id")
+  
+  // Locations
+  pickupLat         Float        @map("pickup_lat")
+  pickupLng         Float        @map("pickup_lng")
+  pickupAddress     String?      @map("pickup_address")
+  
+  dropoffLat        Float        @map("dropoff_lat")
+  dropoffLng        Float        @map("dropoff_lng")
+  dropoffAddress    String?      @map("dropoff_address")
+  
+  // Pricing (in OMR - Omani Rial)
+  distanceKm        Float        @map("distance_km")
+  priceEstimated    Float        @map("price_estimated")  // Calculated price
+  priceFinal        Float?       @map("price_final")      // Final price after completion
+  baseFare          Float        @default(5.0) @map("base_fare")
+  ratePerKm         Float        @default(0.35) @map("rate_per_km")
+  
+  // Status & Tracking
+  status            OrderStatus  @default(SEARCHING)
+  dispatchAttempts  Int          @default(0) @map("dispatch_attempts") // Track round-robin attempts
+  
+  // Timestamps
+  createdAt         DateTime     @default(now()) @map("created_at")
+  acceptedAt        DateTime?    @map("accepted_at")
+  arrivedAt         DateTime?    @map("arrived_at")
+  startedAt         DateTime?    @map("started_at")
+  completedAt       DateTime?    @map("completed_at")
+  cancelledAt       DateTime?    @map("cancelled_at")
+  
+  // Additional info
+  notes             String?      // Customer notes
+  cancellationReason String?     @map("cancellation_reason")
+  
+  // Relations
+  customer          User         @relation("CustomerOrders", fields: [customerId], references: [id])
+  driver            User?        @relation("DriverOrders", fields: [driverId], references: [id])
+  dispatchHistory   DispatchHistory[]
+
+  @@map("orders")
+  @@index([status])
+  @@index([customerId])
+  @@index([driverId])
+  @@index([createdAt])
+}
+
+// ============================================
+// DISPATCH HISTORY TABLE
+// ============================================
+// Tracks which drivers were offered each order (for Round Robin logic)
+model DispatchHistory {
+  id              String      @id @default(uuid())
+  orderId         String      @map("order_id")
+  driverId        String      @map("driver_id")
+  offeredAt       DateTime    @default(now()) @map("offered_at")
+  respondedAt     DateTime?   @map("responded_at")
+  accepted        Boolean?    // null = no response, true = accepted, false = rejected
+  
+  // Relations
+  order           Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@map("dispatch_history")
+  @@index([orderId])
+  @@index([driverId])
+}
