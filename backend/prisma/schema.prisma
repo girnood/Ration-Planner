@@ -1,0 +1,109 @@
+// Prisma Schema for Munkith Roadside Assistance App
+// Database: PostgreSQL with PostGIS extension
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User Roles Enum
+enum UserRole {
+  CUSTOMER
+  PROVIDER
+  ADMIN
+}
+
+// Provider Status Enum
+enum ProviderStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Vehicle Type Enum
+enum VehicleType {
+  FLATBED
+  WHEEL_LIFT
+}
+
+// Order Status Enum
+enum OrderStatus {
+  SEARCHING      // Looking for available driver
+  ACCEPTED       // Driver accepted the order
+  ARRIVED        // Driver arrived at pickup location
+  IN_PROGRESS    // Towing in progress
+  COMPLETED      // Order completed
+  CANCELLED      // Order cancelled
+}
+
+// Users Table
+model User {
+  id        String   @id @default(uuid())
+  phone     String   @unique
+  role      UserRole @default(CUSTOMER)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  providerProfile ProviderProfile?
+  customerOrders  Order[]              @relation("CustomerOrders")
+  providerOrders  Order[]              @relation("ProviderOrders")
+
+  @@index([phone])
+  @@index([role])
+  @@map("users")
+}
+
+// Provider Profile Table (for tow truck drivers)
+model ProviderProfile {
+  id             String         @id @default(uuid())
+  userId         String         @unique
+  vehicleType    VehicleType
+  plateNumber    String
+  status         ProviderStatus @default(PENDING)
+  currentLat     Float?         // Latitude (for PostGIS Point, stored separately for Prisma compatibility)
+  currentLng     Float?         // Longitude
+  isOnline       Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([status])
+  @@index([isOnline])
+  @@map("provider_profiles")
+}
+
+// Orders Table
+model Order {
+  id           String      @id @default(uuid())
+  customerId   String
+  driverId     String?     // Nullable until driver accepts
+  pickupLat    Float       // Pickup latitude
+  pickupLng    Float       // Pickup longitude
+  dropoffLat   Float       // Dropoff latitude
+  dropoffLng   Float       // Dropoff longitude
+  distanceKm   Float?      // Calculated distance in kilometers
+  priceEstimated Float     // Estimated price in OMR
+  status       OrderStatus @default(SEARCHING)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  completedAt  DateTime?
+
+  // Relations
+  customer User  @relation("CustomerOrders", fields: [customerId], references: [id])
+  driver   User? @relation("ProviderOrders", fields: [driverId], references: [id])
+
+  @@index([customerId])
+  @@index([driverId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
