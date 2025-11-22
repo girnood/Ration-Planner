@@ -1,0 +1,11 @@
+{
+  "@@locale": "en",
+  "appTitle": "Munkith Roadside",
+  "authTitle": "Sign in with your phone",
+  "phoneHint": "Enter Omani phone number",
+  "continueLabel": "Continue",
+  "mapTitle": "Tow Requests",
+  "mockDispatch": "Simulate Driver Ping",
+  "invalidPhone": "Enter a valid phone number",
+  "requesting": "Requesting..."
+}
