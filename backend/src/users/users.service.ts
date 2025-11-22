@@ -10,6 +10,9 @@ export class UsersService {
   async create(data: CreateUserDto) {
     return this.prisma.user.create({
       data,
+      include: {
+        providerProfile: true,
+      },
     });
   }
 
