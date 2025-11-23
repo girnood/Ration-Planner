@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl_phone_field/intl_phone_field.dart';
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({super.key});
@@ -9,7 +10,7 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
-  final _phoneController = TextEditingController();
+  String _phoneNumber = '';
   bool _isLoading = false;
 
   Future<void> _handleLogin() async {
@@ -19,7 +20,7 @@ class _AuthScreenState extends State<AuthScreen> {
     await Future.delayed(const Duration(seconds: 1));
     
     // Mock verification logic
-    if (_phoneController.text.isNotEmpty) {
+    if (_phoneNumber.isNotEmpty) {
       if (mounted) {
          context.go('/map');
       }
@@ -47,19 +48,23 @@ class _AuthScreenState extends State<AuthScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 48),
-              TextField(
-                controller: _phoneController,
-                keyboardType: TextInputType.phone,
+              IntlPhoneField(
                 decoration: const InputDecoration(
                   labelText: 'Phone Number',
-                  hintText: '9XXXXXXX',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.phone),
+                  border: OutlineInputBorder(
+                    borderSide: BorderSide(),
+                  ),
                 ),
+                initialCountryCode: 'OM', // Oman default
+                onChanged: (phone) {
+                  setState(() {
+                    _phoneNumber = phone.completeNumber;
+                  });
+                },
               ),
               const SizedBox(height: 24),
               ElevatedButton(
-                onPressed: _isLoading ? null : _handleLogin,
+                onPressed: (_isLoading || _phoneNumber.isEmpty) ? null : _handleLogin,
                 style: ElevatedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
