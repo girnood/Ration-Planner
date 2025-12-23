@@ -1,13 +1,20 @@
 import type { Metadata } from 'next';
+import { Inter, Playfair_Display } from 'next/font/google';
 import './globals.css';
 import { cn } from '@/lib/utils';
 import { Toaster } from '@/components/ui/toaster';
-import { AuthProvider } from '@/components/app/auth-provider';
+import { Header } from '@/components/layout/header';
+import { Footer } from '@/components/layout/footer';
+
+const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair' });
 
 export const metadata: Metadata = {
-  title: 'مخطط الميزانية',
-  description: 'مساعدك الشخصي لإدارة الأساسيات الشهرية والديون والميزانية.',
-  manifest: '/manifest.json',
+  title: 'LUMIÈRE | Elegant Women\'s Fashion',
+  description: 'Discover our curated collection of premium essentials, abayas, and VIP wear.',
+  icons: {
+    icon: '/favicon.ico',
+  },
 };
 
 export default function RootLayout({
@@ -16,28 +23,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ar" dir="rtl" suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap"
-          rel="stylesheet"
-        />
-        <link
-          href="https://fonts.googleapis.com/css2?family=PT+Sans:wght@400;700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className={cn('font-body antialiased')}>
-        <AuthProvider>
+    <html lang="en" suppressHydrationWarning>
+      <body className={cn(
+        'min-h-screen bg-background font-sans antialiased',
+        inter.variable,
+        playfair.variable
+      )}>
+        <Header />
+        <main className="flex-1">
           {children}
-          <Toaster />
-        </AuthProvider>
+        </main>
+        <Footer />
+        <Toaster />
       </body>
     </html>
   );
